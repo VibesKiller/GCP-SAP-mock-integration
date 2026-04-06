@@ -1,0 +1,3 @@
+project_id  = "your-gcp-project-id"
+region      = "europe-west6"
+db_password = "replace-me"

@@ -1,0 +1,12 @@
+{
+  "customer_id": "CUST-100045",
+  "customer_number": "2000045",
+  "full_name": "Helvetic Process Automation AG",
+  "email": "procurement@helvetic-process.example",
+  "phone": "+41-44-555-0184",
+  "country_code": "CH",
+  "city": "Zurich",
+  "postal_code": "8005",
+  "segment": "enterprise",
+  "status": "ACTIVE"
+}

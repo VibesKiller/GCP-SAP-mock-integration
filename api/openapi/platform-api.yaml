@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: SAP Integration Platform Surface
+  version: 0.2.0
+  description: Consolidated external API surface for the SAP mock platform. Detailed service contracts are available in `ingestion-api.yaml` and `query-api.yaml`.
+servers:
+  - url: http://localhost:8080
+    description: sap-mock-api
+  - url: http://localhost:8081
+    description: ingestion-api
+  - url: http://localhost:8083
+    description: query-api
+paths:
+  /api/v1/simulations/sales-orders/create:
+    post:
+      summary: Generate a realistic SAP sales order payload
+      responses:
+        '201':
+          description: Sample payload generated
+  /api/v1/sap/sales-orders:
+    post:
+      summary: Publish a sales order creation event to Kafka
+      responses:
+        '202':
+          description: Event accepted
+  /api/v1/orders:
+    get:
+      summary: List order projections
+      responses:
+        '200':
+          description: Orders returned
+  /api/v1/customers:
+    get:
+      summary: List customer projections
+      responses:
+        '200':
+          description: Customers returned
+  /api/v1/invoices:
+    get:
+      summary: List invoice projections
+      responses:
+        '200':
+          description: Invoices returned

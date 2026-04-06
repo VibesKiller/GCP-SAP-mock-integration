@@ -1,0 +1,11 @@
+flowchart TB
+    GH[GitHub Actions] --> AR[Artifact Registry]
+    GH --> TF[Terraform]
+    TF --> GCP[GCP Project]
+    TF --> GKE[GKE Cluster]
+    TF --> SQL[Cloud SQL PostgreSQL]
+    TF --> GSM[Secret Manager]
+    AR --> GKE
+    HELM[Helm Release] --> GKE
+    GKE --> KAFKA[Kafka Runtime]
+    GKE --> APPS[Go Services]

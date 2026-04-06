@@ -1,0 +1,28 @@
+# Binaries
+bin/
+dist/
+
+# Tooling
+.coverage
+coverage.out
+*.log
+*.tmp
+.env
+.cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# OS
+.DS_Store

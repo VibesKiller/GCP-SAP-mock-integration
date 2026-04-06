@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sap-integration-platform
+version: 0.1.0
+appVersion: 0.1.0
+description: Baseline Helm chart for the GCP SAP mock integration platform.
+type: application

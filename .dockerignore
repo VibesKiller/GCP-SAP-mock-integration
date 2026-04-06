@@ -1,0 +1,9 @@
+.git
+.github
+terraform
+bin
+dist
+*.log
+*.tmp
+.env
+**/.env

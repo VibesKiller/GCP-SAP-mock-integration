@@ -1,0 +1,68 @@
+topics:
+  - name: sap.sales-orders.v1
+    owner: ingestion-api
+    partitions: 6
+    replicationFactor: 3
+    messageKey: sales_order_id
+    partitionStrategy: Hash partition by sales order ID to preserve aggregate ordering across create and update events.
+    headers:
+      - event_id
+      - event_type
+      - version
+      - source
+      - correlation_id
+      - partition_key
+    consumerGroups:
+      - sap-integration.event-processor.v1
+    description: Canonical sales order events normalized from SAP REST payloads.
+
+  - name: sap.customers.v1
+    owner: ingestion-api
+    partitions: 3
+    replicationFactor: 3
+    messageKey: customer_id
+    partitionStrategy: Hash partition by customer ID to keep master-data updates ordered.
+    headers:
+      - event_id
+      - event_type
+      - version
+      - source
+      - correlation_id
+      - partition_key
+    consumerGroups:
+      - sap-integration.event-processor.v1
+    description: Canonical customer update events normalized from SAP REST payloads.
+
+  - name: sap.invoices.v1
+    owner: ingestion-api
+    partitions: 3
+    replicationFactor: 3
+    messageKey: invoice_id
+    partitionStrategy: Hash partition by invoice ID to preserve invoice lifecycle sequencing.
+    headers:
+      - event_id
+      - event_type
+      - version
+      - source
+      - correlation_id
+      - partition_key
+    consumerGroups:
+      - sap-integration.event-processor.v1
+    description: Canonical invoice events normalized from SAP REST payloads.
+
+  - name: sap.integration.dlq.v1
+    owner: event-processor
+    partitions: 3
+    replicationFactor: 3
+    messageKey: original_partition_key
+    partitionStrategy: Reuse the original business key when available to simplify replay and forensic analysis.
+    headers:
+      - failure_reason
+      - original_topic
+      - original_partition
+      - original_offset
+      - event_id
+      - event_type
+      - correlation_id
+    consumerGroups: []
+    description: Dead-letter topic for malformed or non-recoverable events and exhausted retries.

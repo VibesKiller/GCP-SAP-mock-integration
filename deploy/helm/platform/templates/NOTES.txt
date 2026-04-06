@@ -1,0 +1,6 @@
+The platform chart currently installs shared namespace and service-account primitives.
+
+Next step:
+- add Deployments, Services and ServiceMonitors for each Go service
+- wire workload identity and Secret Manager access
+- expose configurable probes and resource settings

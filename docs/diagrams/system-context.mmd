@@ -1,0 +1,12 @@
+flowchart LR
+    SAP[SAP Mock Client] --> SAPAPI[sap-mock-api]
+    SAPAPI --> ING[ingestion-api]
+    ING --> KAFKA[(Apache Kafka)]
+    KAFKA --> PROC[event-processor]
+    PROC --> PG[(PostgreSQL)]
+    PG --> QUERY[query-api]
+    PROC --> NOTIFY[notification-worker]
+    PROM[Prometheus] --> GRAF[Grafana]
+    ING --> PROM
+    PROC --> PROM
+    QUERY --> PROM

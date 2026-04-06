@@ -1,0 +1,211 @@
+openapi: 3.0.3
+info:
+  title: Ingestion API
+  version: 0.2.0
+  description: SAP-facing ingestion edge that validates REST payloads and publishes canonical envelopes to Kafka.
+servers:
+  - url: http://localhost:8081
+paths:
+  /health:
+    get:
+      summary: Readiness and health check
+      responses:
+        '200':
+          description: Service is healthy
+  /api/v1/sap/sales-orders:
+    post:
+      summary: Accept a sales order creation payload from SAP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SAPSalesOrderPayload'
+      responses:
+        '202':
+          description: Event accepted and published to Kafka
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishMetadata'
+  /api/v1/sap/sales-orders/{orderID}:
+    patch:
+      summary: Accept a sales order update payload from SAP
+      parameters:
+        - in: path
+          name: orderID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SAPSalesOrderPayload'
+      responses:
+        '202':
+          description: Event accepted and published to Kafka
+  /api/v1/sap/customers/{customerID}:
+    patch:
+      summary: Accept a customer master-data update payload from SAP
+      parameters:
+        - in: path
+          name: customerID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SAPCustomerPayload'
+      responses:
+        '202':
+          description: Event accepted and published to Kafka
+  /api/v1/sap/invoices:
+    post:
+      summary: Accept an invoice issued payload from SAP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SAPInvoicePayload'
+      responses:
+        '202':
+          description: Event accepted and published to Kafka
+components:
+  schemas:
+    PublishMetadata:
+      type: object
+      properties:
+        topic:
+          type: string
+        message_key:
+          type: string
+        event_id:
+          type: string
+        event_type:
+          type: string
+        correlation_id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        version:
+          type: string
+    SAPSalesOrderPayload:
+      type: object
+      required:
+        - sales_document_id
+        - sales_organization
+        - distribution_channel
+        - division
+        - sold_to_party_id
+        - currency
+        - requested_delivery_date
+        - document_date
+        - status
+        - items
+      properties:
+        sales_document_id:
+          type: string
+        sales_organization:
+          type: string
+        distribution_channel:
+          type: string
+        division:
+          type: string
+        sold_to_party_id:
+          type: string
+        currency:
+          type: string
+        requested_delivery_date:
+          type: string
+          format: date
+        document_date:
+          type: string
+          format: date
+        status:
+          type: string
+        net_amount:
+          type: number
+        tax_amount:
+          type: number
+        total_amount:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SAPSalesOrderItem'
+    SAPSalesOrderItem:
+      type: object
+      required: [line_number, material_code, description, quantity, unit, unit_price]
+      properties:
+        line_number:
+          type: integer
+        material_code:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+        unit_price:
+          type: number
+        net_amount:
+          type: number
+    SAPCustomerPayload:
+      type: object
+      required: [customer_id, customer_number, full_name, email, country_code, status]
+      properties:
+        customer_id:
+          type: string
+        customer_number:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        country_code:
+          type: string
+        city:
+          type: string
+        postal_code:
+          type: string
+        segment:
+          type: string
+        status:
+          type: string
+    SAPInvoicePayload:
+      type: object
+      required: [billing_document_id, sales_document_id, customer_id, currency, issue_date, due_date, status]
+      properties:
+        billing_document_id:
+          type: string
+        sales_document_id:
+          type: string
+        customer_id:
+          type: string
+        currency:
+          type: string
+        issue_date:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+        net_amount:
+          type: number
+        tax_amount:
+          type: number
+        total_amount:
+          type: number

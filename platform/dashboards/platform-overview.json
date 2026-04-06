@@ -1,0 +1,27 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [],
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "sap",
+    "kafka",
+    "gcp"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "title": "SAP Integration Platform Overview",
+  "version": 1
+}

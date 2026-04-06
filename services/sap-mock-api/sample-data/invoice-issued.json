@@ -1,0 +1,12 @@
+{
+  "billing_document_id": "INV-2026-000091",
+  "sales_document_id": "SO-2026-000184",
+  "customer_id": "CUST-100045",
+  "currency": "CHF",
+  "issue_date": "2026-04-02T09:45:00Z",
+  "due_date": "2026-05-02T00:00:00Z",
+  "status": "ISSUED",
+  "net_amount": 13100.00,
+  "tax_amount": 1047.80,
+  "total_amount": 14147.80
+}

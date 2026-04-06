@@ -1,0 +1,36 @@
+global:
+  environment: dev
+  projectId: changeme-gcp-project
+  region: europe-west6
+  logLevel: info
+
+serviceAccount:
+  create: true
+  name: sap-integration-platform
+
+services:
+  sapMockApi:
+    enabled: false
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme/project/sap-mock-api
+      tag: latest
+  ingestionApi:
+    enabled: false
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme/project/ingestion-api
+      tag: latest
+  eventProcessor:
+    enabled: false
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme/project/event-processor
+      tag: latest
+  queryApi:
+    enabled: false
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme/project/query-api
+      tag: latest
+  notificationWorker:
+    enabled: false
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme/project/notification-worker
+      tag: latest

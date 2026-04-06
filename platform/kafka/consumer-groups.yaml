@@ -1,0 +1,15 @@
+consumerGroups:
+  - name: sap-integration.event-processor.v1
+    owner: event-processor
+    topics:
+      - sap.sales-orders.v1
+      - sap.customers.v1
+      - sap.invoices.v1
+    purpose: Consume canonical business events, apply idempotency and persist PostgreSQL projections.
+
+  - name: sap-integration.notification-worker.v1
+    owner: notification-worker
+    topics:
+      - sap.sales-orders.v1
+      - sap.invoices.v1
+    purpose: Reserved optional consumer group for outbound notifications and downstream fan-out.

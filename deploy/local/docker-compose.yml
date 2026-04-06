@@ -1,0 +1,190 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.7.1
+    hostname: kafka
+    restart: unless-stopped
+    ports:
+      - '${KAFKA_EXTERNAL_PORT:-9092}:9092'
+      - '${KAFKA_JMX_PORT:-9101}:9101'
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://kafka:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:${KAFKA_EXTERNAL_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_JMX_PORT: '${KAFKA_JMX_PORT:-9101}'
+      KAFKA_JMX_HOSTNAME: localhost
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ['CMD-SHELL', 'cub kafka-ready -b localhost:9092 1 30']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - '${KAFKA_UI_PORT:-8085}:8080'
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    environment:
+      POSTGRES_DB: '${POSTGRES_DB:-integration}'
+      POSTGRES_USER: '${POSTGRES_USER:-integration}'
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:-integration}'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../platform/database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-integration} -d ${POSTGRES_DB:-integration}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  sap-mock-api:
+    build:
+      context: ../..
+      dockerfile: services/sap-mock-api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '${SAP_MOCK_API_PORT:-8080}:8080'
+    environment:
+      SERVICE_NAME: sap-mock-api
+      ENVIRONMENT: local
+      LOG_LEVEL: '${LOG_LEVEL:-info}'
+      PORT: 8080
+      INGESTION_API_BASE_URL: http://ingestion-api:8081
+      AUTO_DISPATCH: '${AUTO_DISPATCH:-false}'
+      DISPATCH_TIMEOUT: 5s
+      HTTP_READ_TIMEOUT: 5s
+      HTTP_WRITE_TIMEOUT: 10s
+      HTTP_IDLE_TIMEOUT: 30s
+    depends_on:
+      ingestion-api:
+        condition: service_started
+
+  ingestion-api:
+    build:
+      context: ../..
+      dockerfile: services/ingestion-api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '${INGESTION_API_PORT:-8081}:8081'
+    environment:
+      SERVICE_NAME: ingestion-api
+      ENVIRONMENT: local
+      LOG_LEVEL: '${LOG_LEVEL:-info}'
+      PORT: 8081
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: ingestion-api
+      KAFKA_WRITE_TIMEOUT: 5s
+      INGESTION_SOURCE_SYSTEM: '${INGESTION_SOURCE_SYSTEM:-sap-s4hana}'
+      HTTP_READ_TIMEOUT: 5s
+      HTTP_WRITE_TIMEOUT: 10s
+      HTTP_IDLE_TIMEOUT: 30s
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  event-processor:
+    build:
+      context: ../..
+      dockerfile: services/event-processor/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '${EVENT_PROCESSOR_PORT:-8082}:8082'
+    environment:
+      SERVICE_NAME: event-processor
+      ENVIRONMENT: local
+      LOG_LEVEL: '${LOG_LEVEL:-info}'
+      PORT: 8082
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: event-processor
+      KAFKA_CONSUMER_GROUP: sap-integration.event-processor.v1
+      KAFKA_TOPICS: sap.sales-orders.v1,sap.customers.v1,sap.invoices.v1
+      KAFKA_DLQ_TOPIC: sap.integration.dlq.v1
+      KAFKA_COMMIT_TIMEOUT: 5s
+      PROCESSOR_RETRY_MAX_ATTEMPTS: '${PROCESSOR_RETRY_MAX_ATTEMPTS:-3}'
+      PROCESSOR_RETRY_BACKOFF: '${PROCESSOR_RETRY_BACKOFF:-2s}'
+      POSTGRES_URL: 'postgres://${POSTGRES_USER:-integration}:${POSTGRES_PASSWORD:-integration}@postgres:5432/${POSTGRES_DB:-integration}?sslmode=disable'
+      HTTP_READ_TIMEOUT: 5s
+      HTTP_WRITE_TIMEOUT: 10s
+      HTTP_IDLE_TIMEOUT: 30s
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  query-api:
+    build:
+      context: ../..
+      dockerfile: services/query-api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '${QUERY_API_PORT:-8083}:8083'
+    environment:
+      SERVICE_NAME: query-api
+      ENVIRONMENT: local
+      LOG_LEVEL: '${LOG_LEVEL:-info}'
+      PORT: 8083
+      POSTGRES_URL: 'postgres://${POSTGRES_USER:-integration}:${POSTGRES_PASSWORD:-integration}@postgres:5432/${POSTGRES_DB:-integration}?sslmode=disable'
+      DEFAULT_PAGE_SIZE: '${DEFAULT_PAGE_SIZE:-20}'
+      MAX_PAGE_SIZE: '${MAX_PAGE_SIZE:-100}'
+      HTTP_READ_TIMEOUT: 5s
+      HTTP_WRITE_TIMEOUT: 10s
+      HTTP_IDLE_TIMEOUT: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    ports:
+      - '${PROMETHEUS_PORT:-9090}:9090'
+    volumes:
+      - ../../platform/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../platform/alerts/platform-alerts.yaml:/etc/prometheus/rules/platform-alerts.yaml:ro
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    restart: unless-stopped
+    ports:
+      - '${GRAFANA_PORT:-3000}:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../platform/monitoring/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ../../platform/monitoring/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ../../platform/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  kafka-data:
+  postgres-data:
+  grafana-data:

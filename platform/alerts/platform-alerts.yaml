@@ -1,0 +1,29 @@
+groups:
+  - name: sap-integration-platform
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"sap-mock-api|ingestion-api|event-processor|query-api"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: A platform service is unreachable
+          description: One of the platform services has not been scraped successfully for five minutes.
+
+      - alert: HighConsumerLag
+        expr: kafka_consumergroup_lag > 1000
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kafka consumer lag is above threshold
+          description: Consumer lag is above 1000 records for more than ten minutes.
+
+      - alert: DlqTrafficDetected
+        expr: increase(sap_integration_event_processor_dlq_total[15m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Dead-letter traffic detected
+          description: At least one message has been routed to the integration DLQ in the last fifteen minutes.
