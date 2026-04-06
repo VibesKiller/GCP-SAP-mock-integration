@@ -1,0 +1,195 @@
+# Kubernetes Deployment Runbook
+
+This runbook explains how to deploy the SAP integration platform to Kubernetes or GKE using the Helm chart under `deploy/helm/platform`.
+
+## Scope
+
+The chart deploys application workloads only. It does not provision:
+
+- GKE clusters
+- Kafka brokers
+- PostgreSQL
+- Artifact Registry repositories
+- Kubernetes Secret objects
+
+Those dependencies are intentionally managed outside the chart boundary.
+
+## Namespace Assumption
+
+The recommended operating model is one dedicated namespace per environment:
+
+- `sap-integration-dev`
+- `sap-integration-prod`
+
+This keeps ownership clear, makes NetworkPolicy simpler and avoids mixing integration workloads with unrelated applications.
+
+## Prerequisites
+
+Before installing the chart, ensure:
+
+1. the target cluster already exists
+2. application container images have been pushed to Artifact Registry
+3. Kafka is reachable from the application namespace
+4. PostgreSQL is reachable from the application namespace
+5. Kubernetes Secrets containing `POSTGRES_URL` already exist
+6. if Workload Identity is used, the target Google service accounts and IAM bindings are already provisioned
+
+## Kafka Dependency Model
+
+Kafka is treated as a shared platform dependency and can live outside the application namespace.
+
+The relevant Helm values are:
+
+- `global.kafka.bootstrapServers`
+- `global.kafka.topics.salesOrders`
+- `global.kafka.topics.customers`
+- `global.kafka.topics.invoices`
+- `global.kafka.topics.dlq`
+- `global.kafka.consumerGroups.eventProcessor`
+
+Application responsibilities:
+
+- `ingestion-api` publishes business events to Kafka
+- `event-processor` consumes those topics and produces to the DLQ when needed
+- `query-api` does not connect to Kafka
+- `sap-mock-api` does not connect to Kafka directly
+
+## Required Secrets
+
+The chart references existing Kubernetes Secrets rather than embedding sensitive values.
+
+Minimum expected secret:
+
+- `POSTGRES_URL` for `event-processor`
+- `POSTGRES_URL` for `query-api`
+
+Example:
+
+```bash
+kubectl -n sap-integration-dev create secret generic sap-integration-postgres-dev \
+  --from-literal=url='postgres://query_user:strong-password@postgres.example.internal:5432/integration?sslmode=require'
+```
+
+In GKE, a professional pattern is to keep the secret in Google Secret Manager and sync it into Kubernetes using an approved mechanism. The Helm chart stays intentionally neutral and only references the resulting Kubernetes Secret.
+
+## Deploy To Dev
+
+```bash
+helm upgrade --install sap-integration-platform deploy/helm/platform \
+  --namespace sap-integration-dev \
+  --create-namespace \
+  -f deploy/helm/platform/values.yaml \
+  -f deploy/helm/platform/values-dev.yaml
+```
+
+## Deploy To Prod
+
+```bash
+helm upgrade --install sap-integration-platform deploy/helm/platform \
+  --namespace sap-integration-prod \
+  --create-namespace \
+  -f deploy/helm/platform/values.yaml \
+  -f deploy/helm/platform/values-prod.yaml
+```
+
+## Render Before Deploy
+
+Use these commands locally before pushing a chart change:
+
+```bash
+make helm-template
+make helm-template-dev
+make helm-template-prod
+make helm-lint
+```
+
+If `helm` is not installed, these targets fail fast with a clear message.
+
+## Local Kubernetes Note
+
+For a local cluster such as `kind` or `minikube`, disable ingress unless you actually want to manage an ingress controller:
+
+```bash
+helm upgrade --install sap-integration-platform deploy/helm/platform \
+  --namespace sap-integration-dev \
+  --create-namespace \
+  -f deploy/helm/platform/values.yaml \
+  -f deploy/helm/platform/values-dev.yaml \
+  --set global.ingress.enabled=false \
+  --set global.kafka.bootstrapServers='kafka.kafka.svc.cluster.local:9092'
+```
+
+Then access the query API with:
+
+```bash
+kubectl -n sap-integration-dev port-forward svc/sap-integration-platform-query-api 8083:80
+```
+
+## MicroK8s Local Path
+
+This repository includes a dedicated MicroK8s workflow for a persistent local Kubernetes environment.
+
+Files involved:
+
+- [values-microk8s.yaml](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/values-microk8s.yaml)
+- [deploy-microk8s.sh](/home/git/GIT/GCP-SAP-mock-integration/scripts/deploy-microk8s.sh)
+- [smoke-test-microk8s.sh](/home/git/GIT/GCP-SAP-mock-integration/scripts/smoke-test-microk8s.sh)
+
+Execution model:
+
+1. local Docker Compose provides Kafka and PostgreSQL
+2. Kafka is recreated with a Kubernetes-accessible listener
+3. the Go service images are built locally
+4. the images are imported into MicroK8s
+5. Helm deploys the workloads into `sap-integration-local`
+6. an in-cluster smoke test validates the end-to-end path
+
+Use:
+
+```bash
+make microk8s-deploy
+make microk8s-smoke
+```
+
+## Configurable Values
+
+Most operational tuning is exposed through Helm values:
+
+- image repository, tag and pull policy per service
+- replica counts
+- resource requests and limits
+- HPA thresholds for `ingestion-api`
+- readiness and liveness probes
+- service account annotations for Workload Identity
+- Kafka bootstrap servers, topics and consumer group
+- ingress class, hosts, annotations and TLS
+- namespace creation strategy
+- optional egress NetworkPolicy rules
+
+## NetworkPolicy Guidance
+
+The included NetworkPolicy is intentionally minimal.
+
+It allows:
+
+- DNS resolution through `kube-dns`
+- egress to explicitly configured Kafka CIDRs and ports
+- egress to explicitly configured PostgreSQL CIDRs and ports
+
+This is a pragmatic baseline for a dedicated application namespace, not a full zero-trust policy set.
+
+## Post-Deployment Checks
+
+```bash
+kubectl -n sap-integration-dev get deploy,svc,ingress,hpa
+kubectl -n sap-integration-dev get pods
+kubectl -n sap-integration-dev describe deploy sap-integration-platform-ingestion-api
+kubectl -n sap-integration-dev logs deploy/sap-integration-platform-event-processor --tail=100
+```
+
+Check that:
+
+1. all pods become ready
+2. the ingress address is allocated if enabled
+3. the `event-processor` can resolve Kafka and PostgreSQL endpoints
+4. `query-api` returns healthy responses through the Service or Ingress

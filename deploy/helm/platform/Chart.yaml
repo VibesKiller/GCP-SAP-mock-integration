@@ -1,6 +1,14 @@
 apiVersion: v2
 name: sap-integration-platform
-version: 0.1.0
-appVersion: 0.1.0
-description: Baseline Helm chart for the GCP SAP mock integration platform.
+version: 0.2.0
+appVersion: 0.2.0
+description: Production-like Helm packaging for the GCP SAP mock integration platform.
 type: application
+keywords:
+  - gke
+  - kafka
+  - sap
+  - integration
+  - golang
+maintainers:
+  - name: Codex

@@ -1,0 +1,76 @@
+{{- range $name, $service := .Values.services }}
+{{- if $service.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "platform.componentFullname" (dict "root" $ "service" $service) }}
+  namespace: {{ include "platform.namespace" $ }}
+  labels:
+{{ include "platform.labels" (dict "root" $ "service" $service) | nindent 4 }}
+  {{- with $service.deploymentAnnotations }}
+  annotations:
+{{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ ternary $service.autoscaling.minReplicas $service.replicaCount $service.autoscaling.enabled }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+{{ include "platform.selectorLabels" (dict "root" $ "service" $service) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "platform.labels" (dict "root" $ "service" $service) | nindent 8 }}
+      annotations:
+        checksum/config: {{ printf "%s%s" (toJson $.Values.global) (toJson $service) | sha256sum }}
+        {{- with $.Values.global.commonAnnotations }}
+{{ toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with $service.podAnnotations }}
+{{ toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "platform.serviceAccountName" (dict "root" $ "service" $service) }}
+      {{- with $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+{{ toYaml $.Values.global.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ $service.component }}
+          image: {{ printf "%s:%s" $service.image.repository $service.image.tag | quote }}
+          imagePullPolicy: {{ $service.image.pullPolicy }}
+          securityContext:
+{{ toYaml $.Values.global.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $service.containerPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "platform.componentFullname" (dict "root" $ "service" $service) }}
+          {{- if or $service.extraEnv $service.extraSecretEnv }}
+          env:
+            {{- range $env := $service.extraEnv }}
+            - name: {{ $env.name }}
+              value: {{ $env.value | quote }}
+            {{- end }}
+            {{- range $secretEnv := $service.extraSecretEnv }}
+            - name: {{ $secretEnv.name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretEnv.secretName | quote }}
+                  key: {{ $secretEnv.secretKey | quote }}
+                  optional: {{ default false $secretEnv.optional }}
+            {{- end }}
+          {{- end }}
+          readinessProbe:
+{{ toYaml $service.readinessProbe | nindent 12 }}
+          livenessProbe:
+{{ toYaml $service.livenessProbe | nindent 12 }}
+          resources:
+{{ toYaml $service.resources | nindent 12 }}
+{{- end }}
+{{- end }}

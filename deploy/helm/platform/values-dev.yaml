@@ -1,0 +1,76 @@
+global:
+  environment: dev
+  projectId: changeme-gcp-project-dev
+  region: europe-west6
+  namespace:
+    create: true
+    name: sap-integration-dev
+  ingress:
+    enabled: true
+    className: gce
+    annotations:
+      kubernetes.io/ingress.allow-http: "false"
+    hosts:
+      - host: sap-integration-dev.example.internal
+        paths:
+          - path: /mock
+            pathType: Prefix
+            service: sapMockApi
+          - path: /ingest
+            pathType: Prefix
+            service: ingestionApi
+          - path: /query
+            pathType: Prefix
+            service: queryApi
+  kafka:
+    bootstrapServers: kafka-bootstrap.platform-shared.svc.cluster.local:9092
+  networkPolicy:
+    enabled: false
+
+services:
+  sapMockApi:
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project-dev/sap-integration/sap-mock-api
+      tag: dev
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: sap-mock-api-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
+  ingestionApi:
+    replicaCount: 1
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project-dev/sap-integration/ingestion-api
+      tag: dev
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: ingestion-api-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 75
+  eventProcessor:
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project-dev/sap-integration/event-processor
+      tag: dev
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: event-processor-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
+    extraSecretEnv:
+      - name: POSTGRES_URL
+        secretName: sap-integration-postgres-dev
+        secretKey: url
+        optional: false
+  queryApi:
+    replicaCount: 1
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project-dev/sap-integration/query-api
+      tag: dev
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: query-api-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
+    extraSecretEnv:
+      - name: POSTGRES_URL
+        secretName: sap-integration-postgres-dev
+        secretKey: url
+        optional: false

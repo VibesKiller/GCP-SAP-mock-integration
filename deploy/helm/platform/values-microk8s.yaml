@@ -1,0 +1,46 @@
+global:
+  environment: local-k8s
+  namespace:
+    create: false
+    name: sap-integration-local
+  ingress:
+    enabled: false
+    className: public
+  networkPolicy:
+    enabled: false
+
+services:
+  sapMockApi:
+    image:
+      repository: sap-mock-api
+      tag: microk8s
+      pullPolicy: Never
+  ingestionApi:
+    replicaCount: 1
+    image:
+      repository: ingestion-api
+      tag: microk8s
+      pullPolicy: Never
+    autoscaling:
+      enabled: false
+  eventProcessor:
+    image:
+      repository: event-processor
+      tag: microk8s
+      pullPolicy: Never
+    extraSecretEnv:
+      - name: POSTGRES_URL
+        secretName: sap-integration-postgres-local
+        secretKey: url
+        optional: false
+  queryApi:
+    replicaCount: 1
+    image:
+      repository: query-api
+      tag: microk8s
+      pullPolicy: Never
+    extraSecretEnv:
+      - name: POSTGRES_URL
+        secretName: sap-integration-postgres-local
+        secretKey: url
+        optional: false

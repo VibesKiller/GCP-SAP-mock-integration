@@ -1,7 +1,8 @@
+{{- if .Values.global.namespace.create }}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: sap-integration
+  name: {{ include "platform.namespace" . }}
   labels:
-    app.kubernetes.io/name: sap-integration-platform
-    app.kubernetes.io/part-of: sap-integration-platform
+{{ include "platform.baseLabels" (dict "root" .) | nindent 4 }}
+{{- end }}

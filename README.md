@@ -210,6 +210,9 @@ The smoke test verifies:
 - `make smoke`
 - `make kafka-topics`
 - `make kafka-test`
+- `make microk8s-deploy`
+- `make microk8s-smoke`
+- `make microk8s-status`
 
 ## Local Service URLs
 
@@ -250,6 +253,56 @@ make test
 - [local-development.md](/home/git/GIT/GCP-SAP-mock-integration/docs/runbooks/local-development.md)
 - [dlq-replay.md](/home/git/GIT/GCP-SAP-mock-integration/docs/runbooks/dlq-replay.md)
 
+## Kubernetes And Helm
+
+The Kubernetes packaging is intentionally production-like but still manageable for a portfolio repository.
+
+Included in the Helm chart:
+
+- Deployment and Service per workload
+- ConfigMap-backed runtime configuration
+- Secret references for database connectivity
+- readiness and liveness probes
+- resource requests and limits
+- Ingress for the HTTP-facing services
+- HPA for `ingestion-api`
+- optional egress NetworkPolicy for Kafka and PostgreSQL flows
+- environment-specific overlays for dev and prod
+
+Primary chart files:
+
+- [Chart.yaml](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/Chart.yaml)
+- [values.yaml](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/values.yaml)
+- [values-dev.yaml](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/values-dev.yaml)
+- [values-microk8s.yaml](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/values-microk8s.yaml)
+- [values-prod.yaml](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/values-prod.yaml)
+- [Helm chart README](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/README.md)
+- [kubernetes-deployment.md](/home/git/GIT/GCP-SAP-mock-integration/docs/runbooks/kubernetes-deployment.md)
+
+### MicroK8s Local Cluster
+
+This repository also supports a persistent local Kubernetes workflow on MicroK8s.
+
+The MicroK8s path is intentionally pragmatic:
+
+- the application workloads run in Kubernetes
+- Kafka and PostgreSQL remain the local shared dependencies from Docker Compose
+- the deployment script rebuilds and imports the four Go service images into MicroK8s
+- Kafka is reconfigured with a dedicated listener for Kubernetes workloads
+
+Run it with:
+
+```bash
+make microk8s-deploy
+make microk8s-smoke
+```
+
+Useful references:
+
+- [values-microk8s.yaml](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/values-microk8s.yaml)
+- [deploy-microk8s.sh](/home/git/GIT/GCP-SAP-mock-integration/scripts/deploy-microk8s.sh)
+- [smoke-test-microk8s.sh](/home/git/GIT/GCP-SAP-mock-integration/scripts/smoke-test-microk8s.sh)
+
 ## Current Status
 
 Implemented so far:
@@ -264,10 +317,11 @@ Implemented so far:
 - root `.env.example` and service-level `.env.example` files
 - Makefile workflow for bootstrap, testing and smoke verification
 - minimal but credible Go unit tests
+- Helm chart for GKE-ready workload deployment with dev and prod overlays
 
 ## Next Steps
 
-1. add Helm manifests for Deployments, Services, probes and Workload Identity-aware configuration
-2. extend CI with richer checks and image build validation
-3. add repository and handler tests around PostgreSQL and HTTP edge cases
-4. wire Terraform outputs into deployment values for GKE environments
+1. extend CI with richer checks and image build validation
+2. add repository and handler tests around PostgreSQL and HTTP edge cases
+3. wire Terraform outputs into deployment values for GKE environments
+4. add a Secret Manager sync pattern for GKE, such as CSI or External Secrets, and document the chosen operational model

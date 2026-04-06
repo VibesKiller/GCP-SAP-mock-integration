@@ -1,6 +1,14 @@
-The platform chart currently installs shared namespace and service-account primitives.
+The SAP integration platform has been rendered for namespace {{ include "platform.namespace" . }}.
 
-Next step:
-- add Deployments, Services and ServiceMonitors for each Go service
-- wire workload identity and Secret Manager access
-- expose configurable probes and resource settings
+Runtime assumptions:
+- Kafka is external to this chart and reachable at {{ .Values.global.kafka.bootstrapServers }}
+- PostgreSQL credentials are injected through existing Kubernetes Secrets
+- Workload Identity annotations can be set per service account in values files
+
+Useful commands:
+  kubectl -n {{ include "platform.namespace" . }} get pods
+  kubectl -n {{ include "platform.namespace" . }} get ingress
+  kubectl -n {{ include "platform.namespace" . }} get hpa
+
+If ingress is disabled, access query-api locally with:
+  kubectl -n {{ include "platform.namespace" . }} port-forward svc/{{ include "platform.componentFullname" (dict "root" . "service" .Values.services.queryApi) }} 8083:{{ .Values.services.queryApi.service.port }}

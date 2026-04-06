@@ -1,0 +1,120 @@
+global:
+  environment: prod
+  projectId: changeme-gcp-project-prod
+  region: europe-west6
+  namespace:
+    create: true
+    name: sap-integration-prod
+  ingress:
+    enabled: true
+    className: gce
+    annotations:
+      kubernetes.io/ingress.allow-http: "false"
+      kubernetes.io/ingress.global-static-ip-name: sap-integration-prod-ip
+    hosts:
+      - host: sap-integration.example.com
+        paths:
+          - path: /mock
+            pathType: Prefix
+            service: sapMockApi
+          - path: /ingest
+            pathType: Prefix
+            service: ingestionApi
+          - path: /query
+            pathType: Prefix
+            service: queryApi
+    tls:
+      - secretName: sap-integration-prod-tls
+        hosts:
+          - sap-integration.example.com
+  kafka:
+    bootstrapServers: kafka-bootstrap.shared-platform.svc.cluster.local:9092
+  networkPolicy:
+    enabled: true
+    egressRules:
+      - name: kafka
+        cidr: 10.42.20.0/24
+        ports:
+          - 9092
+      - name: postgres
+        cidr: 10.42.30.0/24
+        ports:
+          - 5432
+
+services:
+  sapMockApi:
+    replicaCount: 2
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project-prod/sap-integration/sap-mock-api
+      tag: 1.0.0
+    resources:
+      requests:
+        cpu: 150m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: sap-mock-api-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
+  ingestionApi:
+    replicaCount: 3
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project-prod/sap-integration/ingestion-api
+      tag: 1.0.0
+    resources:
+      requests:
+        cpu: 300m
+        memory: 384Mi
+      limits:
+        cpu: 1
+        memory: 768Mi
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: ingestion-api-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 65
+      targetMemoryUtilizationPercentage: 75
+  eventProcessor:
+    replicaCount: 2
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project-prod/sap-integration/event-processor
+      tag: 1.0.0
+    resources:
+      requests:
+        cpu: 400m
+        memory: 512Mi
+      limits:
+        cpu: 1
+        memory: 1Gi
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: event-processor-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
+    extraSecretEnv:
+      - name: POSTGRES_URL
+        secretName: sap-integration-postgres-prod
+        secretKey: url
+        optional: false
+  queryApi:
+    replicaCount: 3
+    image:
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project-prod/sap-integration/query-api
+      tag: 1.0.0
+    resources:
+      requests:
+        cpu: 250m
+        memory: 384Mi
+      limits:
+        cpu: 750m
+        memory: 768Mi
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: query-api-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
+    extraSecretEnv:
+      - name: POSTGRES_URL
+        secretName: sap-integration-postgres-prod
+        secretKey: url
+        optional: false

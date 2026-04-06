@@ -1,0 +1,92 @@
+{{- if .Values.services.sapMockApi.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "platform.componentFullname" (dict "root" . "service" .Values.services.sapMockApi) }}
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" .Values.services.sapMockApi) | nindent 4 }}
+data:
+  SERVICE_NAME: sap-mock-api
+  ENVIRONMENT: {{ .Values.global.environment | quote }}
+  LOG_LEVEL: {{ default "info" .Values.global.logLevel | quote }}
+  PORT: {{ printf "%v" .Values.services.sapMockApi.containerPort | quote }}
+  INGESTION_API_BASE_URL: {{ printf "http://%s" (include "platform.componentFullname" (dict "root" . "service" .Values.services.ingestionApi)) | quote }}
+  AUTO_DISPATCH: {{ printf "%v" .Values.services.sapMockApi.autoDispatch | quote }}
+  DISPATCH_TIMEOUT: {{ .Values.services.sapMockApi.dispatchTimeout | quote }}
+  HTTP_READ_TIMEOUT: {{ .Values.services.sapMockApi.timeouts.read | quote }}
+  HTTP_WRITE_TIMEOUT: {{ .Values.services.sapMockApi.timeouts.write | quote }}
+  HTTP_IDLE_TIMEOUT: {{ .Values.services.sapMockApi.timeouts.idle | quote }}
+{{- end }}
+
+{{- if .Values.services.ingestionApi.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "platform.componentFullname" (dict "root" . "service" .Values.services.ingestionApi) }}
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" .Values.services.ingestionApi) | nindent 4 }}
+data:
+  SERVICE_NAME: ingestion-api
+  ENVIRONMENT: {{ .Values.global.environment | quote }}
+  LOG_LEVEL: {{ default "info" .Values.global.logLevel | quote }}
+  PORT: {{ printf "%v" .Values.services.ingestionApi.containerPort | quote }}
+  KAFKA_BROKERS: {{ .Values.global.kafka.bootstrapServers | quote }}
+  KAFKA_CLIENT_ID: {{ .Values.services.ingestionApi.kafkaClientId | quote }}
+  KAFKA_WRITE_TIMEOUT: {{ .Values.services.ingestionApi.kafkaWriteTimeout | quote }}
+  INGESTION_SOURCE_SYSTEM: {{ .Values.services.ingestionApi.sourceSystem | quote }}
+  HTTP_READ_TIMEOUT: {{ .Values.services.ingestionApi.timeouts.read | quote }}
+  HTTP_WRITE_TIMEOUT: {{ .Values.services.ingestionApi.timeouts.write | quote }}
+  HTTP_IDLE_TIMEOUT: {{ .Values.services.ingestionApi.timeouts.idle | quote }}
+{{- end }}
+
+{{- if .Values.services.eventProcessor.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "platform.componentFullname" (dict "root" . "service" .Values.services.eventProcessor) }}
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" .Values.services.eventProcessor) | nindent 4 }}
+data:
+  SERVICE_NAME: event-processor
+  ENVIRONMENT: {{ .Values.global.environment | quote }}
+  LOG_LEVEL: {{ default "info" .Values.global.logLevel | quote }}
+  PORT: {{ printf "%v" .Values.services.eventProcessor.containerPort | quote }}
+  KAFKA_BROKERS: {{ .Values.global.kafka.bootstrapServers | quote }}
+  KAFKA_CLIENT_ID: {{ .Values.services.eventProcessor.kafkaClientId | quote }}
+  KAFKA_CONSUMER_GROUP: {{ .Values.global.kafka.consumerGroups.eventProcessor | quote }}
+  KAFKA_TOPICS: {{ printf "%s,%s,%s" .Values.global.kafka.topics.salesOrders .Values.global.kafka.topics.customers .Values.global.kafka.topics.invoices | quote }}
+  KAFKA_DLQ_TOPIC: {{ .Values.global.kafka.topics.dlq | quote }}
+  KAFKA_COMMIT_TIMEOUT: {{ .Values.services.eventProcessor.kafkaCommitTimeout | quote }}
+  PROCESSOR_RETRY_MAX_ATTEMPTS: {{ printf "%v" .Values.services.eventProcessor.retryMaxAttempts | quote }}
+  PROCESSOR_RETRY_BACKOFF: {{ .Values.services.eventProcessor.retryBackoff | quote }}
+  HTTP_READ_TIMEOUT: {{ .Values.services.eventProcessor.timeouts.read | quote }}
+  HTTP_WRITE_TIMEOUT: {{ .Values.services.eventProcessor.timeouts.write | quote }}
+  HTTP_IDLE_TIMEOUT: {{ .Values.services.eventProcessor.timeouts.idle | quote }}
+{{- end }}
+
+{{- if .Values.services.queryApi.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "platform.componentFullname" (dict "root" . "service" .Values.services.queryApi) }}
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" .Values.services.queryApi) | nindent 4 }}
+data:
+  SERVICE_NAME: query-api
+  ENVIRONMENT: {{ .Values.global.environment | quote }}
+  LOG_LEVEL: {{ default "info" .Values.global.logLevel | quote }}
+  PORT: {{ printf "%v" .Values.services.queryApi.containerPort | quote }}
+  DEFAULT_PAGE_SIZE: {{ printf "%v" .Values.services.queryApi.defaultPageSize | quote }}
+  MAX_PAGE_SIZE: {{ printf "%v" .Values.services.queryApi.maxPageSize | quote }}
+  HTTP_READ_TIMEOUT: {{ .Values.services.queryApi.timeouts.read | quote }}
+  HTTP_WRITE_TIMEOUT: {{ .Values.services.queryApi.timeouts.write | quote }}
+  HTTP_IDLE_TIMEOUT: {{ .Values.services.queryApi.timeouts.idle | quote }}
+{{- end }}

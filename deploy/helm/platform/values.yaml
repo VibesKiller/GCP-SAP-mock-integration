@@ -3,34 +3,340 @@ global:
   projectId: changeme-gcp-project
   region: europe-west6
   logLevel: info
-
-serviceAccount:
-  create: true
-  name: sap-integration-platform
+  nameOverride: ""
+  fullnameOverride: ""
+  namespace:
+    create: false
+    name: sap-integration
+  commonLabels: {}
+  commonAnnotations: {}
+  imagePullSecrets: []
+  podSecurityContext:
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  ingress:
+    enabled: true
+    className: gce
+    annotations: {}
+    hosts:
+      - host: sap-integration.example.internal
+        paths:
+          - path: /mock
+            pathType: Prefix
+            service: sapMockApi
+          - path: /ingest
+            pathType: Prefix
+            service: ingestionApi
+          - path: /query
+            pathType: Prefix
+            service: queryApi
+    tls: []
+  kafka:
+    bootstrapServers: kafka-bootstrap.platform-shared.svc.cluster.local:9092
+    topics:
+      salesOrders: sap.sales-orders.v1
+      customers: sap.customers.v1
+      invoices: sap.invoices.v1
+      dlq: sap.integration.dlq.v1
+    consumerGroups:
+      eventProcessor: sap-integration.event-processor.v1
+  networkPolicy:
+    enabled: false
+    egressRules:
+      - name: kafka
+        cidr: 10.20.0.0/24
+        ports:
+          - 9092
+      - name: postgres
+        cidr: 10.30.0.0/24
+        ports:
+          - 5432
 
 services:
   sapMockApi:
-    enabled: false
+    enabled: true
+    component: sap-mock-api
+    replicaCount: 1
+    containerPort: 8080
     image:
-      repository: europe-west6-docker.pkg.dev/changeme/project/sap-mock-api
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project/sap-integration/sap-mock-api
       tag: latest
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: ""
+      annotations: {}
+    deploymentAnnotations: {}
+    podAnnotations: {}
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 80
+      annotations: {}
+    autoDispatch: false
+    dispatchTimeout: 5s
+    timeouts:
+      read: 5s
+      write: 10s
+      idle: 30s
+    extraEnv: []
+    extraSecretEnv: []
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /live
+        port: http
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 2
+      failureThreshold: 3
+    autoscaling:
+      enabled: false
+
   ingestionApi:
-    enabled: false
+    enabled: true
+    component: ingestion-api
+    replicaCount: 2
+    containerPort: 8081
     image:
-      repository: europe-west6-docker.pkg.dev/changeme/project/ingestion-api
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project/sap-integration/ingestion-api
       tag: latest
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: ""
+      annotations: {}
+    deploymentAnnotations: {}
+    podAnnotations: {}
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 80
+      annotations: {}
+    sourceSystem: sap-s4hana
+    kafkaClientId: ingestion-api
+    kafkaWriteTimeout: 5s
+    timeouts:
+      read: 5s
+      write: 10s
+      idle: 30s
+    extraEnv: []
+    extraSecretEnv: []
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /live
+        port: http
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 2
+      failureThreshold: 3
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 75
+
   eventProcessor:
-    enabled: false
+    enabled: true
+    component: event-processor
+    replicaCount: 1
+    containerPort: 8082
     image:
-      repository: europe-west6-docker.pkg.dev/changeme/project/event-processor
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project/sap-integration/event-processor
       tag: latest
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: ""
+      annotations: {}
+    deploymentAnnotations: {}
+    podAnnotations: {}
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 80
+      annotations: {}
+    kafkaClientId: event-processor
+    kafkaCommitTimeout: 5s
+    retryMaxAttempts: 3
+    retryBackoff: 2s
+    timeouts:
+      read: 5s
+      write: 10s
+      idle: 30s
+    extraEnv: []
+    extraSecretEnv:
+      - name: POSTGRES_URL
+        secretName: sap-integration-postgres
+        secretKey: url
+        optional: false
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 750m
+        memory: 512Mi
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /live
+        port: http
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 2
+      failureThreshold: 3
+    autoscaling:
+      enabled: false
+
   queryApi:
-    enabled: false
+    enabled: true
+    component: query-api
+    replicaCount: 2
+    containerPort: 8083
     image:
-      repository: europe-west6-docker.pkg.dev/changeme/project/query-api
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project/sap-integration/query-api
       tag: latest
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: ""
+      annotations: {}
+    deploymentAnnotations: {}
+    podAnnotations: {}
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 80
+      annotations: {}
+    defaultPageSize: 20
+    maxPageSize: 100
+    timeouts:
+      read: 5s
+      write: 10s
+      idle: 30s
+    extraEnv: []
+    extraSecretEnv:
+      - name: POSTGRES_URL
+        secretName: sap-integration-postgres
+        secretKey: url
+        optional: false
+    resources:
+      requests:
+        cpu: 150m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /live
+        port: http
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 2
+      failureThreshold: 3
+    autoscaling:
+      enabled: false
+
   notificationWorker:
     enabled: false
+    component: notification-worker
+    replicaCount: 1
+    containerPort: 8084
     image:
-      repository: europe-west6-docker.pkg.dev/changeme/project/notification-worker
+      repository: europe-west6-docker.pkg.dev/changeme-gcp-project/sap-integration/notification-worker
       tag: latest
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: ""
+      annotations: {}
+    deploymentAnnotations: {}
+    podAnnotations: {}
+    service:
+      enabled: false
+      type: ClusterIP
+      port: 80
+      annotations: {}
+    extraEnv: []
+    extraSecretEnv: []
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /live
+        port: http
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 2
+      failureThreshold: 3
+    autoscaling:
+      enabled: false
