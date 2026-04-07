@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    participant SAP as sap-mock-api
+    participant ING as ingestion-api
+    participant K as Apache Kafka
+    participant P as event-processor
+    participant DB as PostgreSQL
+    participant Q as query-api
+
+    SAP->>ING: SAP payload + X-Correlation-ID
+    ING->>ING: validate and normalize
+    ING->>K: canonical envelope keyed by aggregate ID
+    K-->>P: event delivered to consumer group
+    P->>DB: insert processed_events(event_id)
+    alt duplicate event
+        DB-->>P: conflict, already processed
+        P-->>K: commit offset
+    else valid event
+        P->>DB: upsert projection tables
+        P-->>K: commit offset
+    else non-recoverable event
+        P->>K: publish to sap.integration.dlq.v1
+        P->>DB: record DLQ status when event_id is available
+        P-->>K: commit offset
+    end
+    Q->>DB: read customers/orders/invoices
+    DB-->>Q: projections

@@ -9,6 +9,7 @@ ENVIRONMENT="${ENVIRONMENT:-dev}"
 TERRAFORM_DIR="${TERRAFORM_DIR:-$REPO_ROOT/terraform/envs/$ENVIRONMENT}"
 K8S_NAMESPACE="${K8S_NAMESPACE:-sap-integration-${ENVIRONMENT}}"
 HELM_RELEASE="${HELM_RELEASE:-sap-integration-platform}"
+HELM_ENV_VALUES="${HELM_ENV_VALUES:-$REPO_ROOT/deploy/helm/platform/values-${ENVIRONMENT}.yaml}"
 POSTGRES_SECRET_NAME="${POSTGRES_SECRET_NAME:-sap-integration-postgres-${ENVIRONMENT}}"
 IMAGE_TAG="${IMAGE_TAG:-gke-${ENVIRONMENT}-$(git -C "$REPO_ROOT" rev-parse --short HEAD)}"
 DISABLE_INGRESS="${DISABLE_INGRESS:-true}"
@@ -185,7 +186,7 @@ log "deploying Helm release ${HELM_RELEASE} to ${K8S_NAMESPACE}"
 helm upgrade --install "$HELM_RELEASE" "$REPO_ROOT/deploy/helm/platform" \
   --namespace "$K8S_NAMESPACE" \
   -f "$REPO_ROOT/deploy/helm/platform/values.yaml" \
-  -f "$REPO_ROOT/deploy/helm/platform/values-dev.yaml" \
+  -f "$HELM_ENV_VALUES" \
   -f "$VALUES_FILE" \
   --wait \
   --timeout 10m
@@ -194,3 +195,4 @@ log "GKE deployment completed"
 printf '\nNext checks:\n'
 printf '  make gke-status\n'
 printf '  make gke-smoke\n'
+printf '  make gke-grafana\n'

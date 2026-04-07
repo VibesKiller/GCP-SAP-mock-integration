@@ -49,6 +49,9 @@ global:
         ports:
           - 5432
 
+observability:
+  enabled: false
+
 services:
   sapMockApi:
     replicaCount: 2

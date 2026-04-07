@@ -147,9 +147,9 @@ This repository includes a dedicated MicroK8s workflow for a persistent local Ku
 
 Files involved:
 
-- [values-microk8s.yaml](/home/git/GIT/GCP-SAP-mock-integration/deploy/helm/platform/values-microk8s.yaml)
-- [deploy-microk8s.sh](/home/git/GIT/GCP-SAP-mock-integration/scripts/deploy-microk8s.sh)
-- [smoke-test-microk8s.sh](/home/git/GIT/GCP-SAP-mock-integration/scripts/smoke-test-microk8s.sh)
+- `deploy/helm/platform/values-microk8s.yaml`
+- `scripts/deploy-microk8s.sh`
+- `scripts/smoke-test-microk8s.sh`
 
 Execution model:
 
@@ -233,9 +233,11 @@ The smoke test uses the current `kubectl` context and starts a temporary `curlim
 
 1. rollout status for the four application deployments
 2. health and readiness endpoints inside the namespace
-3. `sap-mock-api` dispatch to `ingestion-api`
-4. Kafka publish and consume through Google Managed Kafka
-5. PostgreSQL projection reads through `query-api`
+3. Prometheus and Grafana readiness when chart observability is enabled
+4. Grafana dashboard provisioning when chart observability is enabled
+5. `sap-mock-api` dispatch to `ingestion-api`
+6. Kafka publish and consume through Google Managed Kafka
+7. PostgreSQL projection reads through `query-api`
 
 Useful overrides:
 
@@ -244,3 +246,45 @@ K8S_NAMESPACE=sap-integration-prod make gke-smoke
 HELM_RELEASE=sap-integration-platform make gke-smoke
 KUBECTL=/path/to/kubectl make gke-smoke
 ```
+
+## GKE Grafana Access
+
+The dev overlay enables a small namespace-local Prometheus and Grafana stack:
+
+- Prometheus Service: `sap-integration-platform-prometheus`
+- Grafana Service: `sap-integration-platform-grafana`
+- Dashboard UID: `sap-integration-platform-overview`
+
+Port-forward Grafana:
+
+```bash
+make gke-grafana
+```
+
+The target starts a detached port-forward and stores PID/log files under `.cache/port-forward/`, so the terminal returns immediately.
+
+Then open:
+
+```text
+http://localhost:3000/d/sap-integration-platform-overview/sap-integration-platform-overview
+```
+
+Port-forward Prometheus when you need to inspect targets or alerts:
+
+```bash
+make gke-prometheus
+```
+
+Check or stop detached port-forwards:
+
+```bash
+make gke-observability-status
+make gke-observability-stop
+```
+
+Useful URLs:
+
+- `http://localhost:9090/targets`
+- `http://localhost:9090/alerts`
+
+The Kafka consumer lag panel remains dashboard-ready but requires a Kafka exporter or managed Kafka lag metric scraped by this Prometheus instance.

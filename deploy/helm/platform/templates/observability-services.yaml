@@ -1,0 +1,49 @@
+{{- if and .Values.observability.enabled .Values.observability.prometheus.enabled }}
+{{- $prometheus := .Values.observability.prometheus }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "platform.componentFullname" (dict "root" . "service" $prometheus) }}
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" $prometheus) | nindent 4 }}
+  {{- with $prometheus.service.annotations }}
+  annotations:
+{{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $prometheus.service.type }}
+  selector:
+{{ include "platform.selectorLabels" (dict "root" . "service" $prometheus) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $prometheus.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
+
+{{- if and .Values.observability.enabled .Values.observability.grafana.enabled }}
+{{- $grafana := .Values.observability.grafana }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "platform.componentFullname" (dict "root" . "service" $grafana) }}
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" $grafana) | nindent 4 }}
+  {{- with $grafana.service.annotations }}
+  annotations:
+{{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $grafana.service.type }}
+  selector:
+{{ include "platform.selectorLabels" (dict "root" . "service" $grafana) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $grafana.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}

@@ -15,7 +15,7 @@ SERVICE ?=
 GO_PACKAGES := ./...
 GO_FILES := $(shell find . -type f -name '*.go' -not -path './.git/*')
 
-.PHONY: help up down logs ps build test lint fmt check smoke seed kafka-topics kafka-test check-structure tree openapi-summary compose-up compose-down topics-create kafka-topology terraform-fmt-check go-build go-test helm-lint helm-template helm-template-dev helm-template-prod microk8s-deploy microk8s-smoke microk8s-status gke-deploy gke-status gke-smoke gcp-smoke
+.PHONY: help up down logs ps build docker-build test lint fmt check ci smoke seed kafka-topics kafka-test check-structure tree openapi-summary compose-up compose-down topics-create kafka-topology terraform-fmt-check terraform-validate go-build go-test helm-lint helm-template helm-template-dev helm-template-prod microk8s-deploy microk8s-smoke microk8s-status gke-deploy gke-status gke-smoke gcp-smoke gke-grafana gke-prometheus gke-observability-status gke-observability-stop
 
 help: ## Show available targets
 	@printf '\nLocal developer workflow:\n\n'
@@ -39,6 +39,12 @@ ps: ## Show the current local stack status
 
 build: ## Build all Go packages
 	@go build $(GO_PACKAGES)
+
+docker-build: ## Build all service container images locally without pushing
+	@for service in sap-mock-api ingestion-api event-processor query-api; do \
+		echo "Building $$service"; \
+		docker build -f "services/$$service/Dockerfile" -t "sap-integration/$$service:local" .; \
+	done
 
 test: ## Run the Go unit test suite
 	@go test $(GO_PACKAGES)
@@ -65,6 +71,14 @@ check: ## Run lint, unit tests and structure validation
 	@$(MAKE) lint
 	@$(MAKE) test
 	@$(MAKE) check-structure
+
+ci: ## Run the local equivalent of the core CI checks
+	@$(MAKE) check
+	@$(MAKE) terraform-fmt-check
+	@$(MAKE) helm-lint
+	@$(MAKE) helm-template >/tmp/sap-integration-helm-base.yaml
+	@$(MAKE) helm-template-dev >/tmp/sap-integration-helm-dev.yaml
+	@$(MAKE) helm-template-prod >/tmp/sap-integration-helm-prod.yaml
 
 smoke: ## Run the local end-to-end smoke test against the running stack
 	@./scripts/smoke-test.sh
@@ -111,6 +125,12 @@ kafka-topology: ## Print the Kafka topology catalog from repository docs
 terraform-fmt-check: ## Run terraform fmt in check mode when terraform is installed
 	@terraform fmt -check -recursive terraform
 
+terraform-validate: ## Validate Terraform dev and prod stacks with local provider cache
+	@terraform -chdir=terraform/envs/dev init -backend=false
+	@terraform -chdir=terraform/envs/dev validate
+	@terraform -chdir=terraform/envs/prod init -backend=false
+	@terraform -chdir=terraform/envs/prod validate
+
 helm-lint: ## Run helm lint for the application chart when helm is installed
 	@command -v helm >/dev/null 2>&1 || { echo 'helm is not installed'; exit 1; }
 	@helm lint deploy/helm/platform
@@ -149,3 +169,15 @@ gke-smoke: ## Run an end-to-end smoke test against the current GKE kubectl conte
 
 gcp-smoke: ## Alias for make gke-smoke
 	@$(MAKE) gke-smoke
+
+gke-grafana: ## Start detached Grafana port-forward from the GKE dev namespace
+	@./scripts/gke-port-forward.sh grafana
+
+gke-prometheus: ## Start detached Prometheus port-forward from the GKE dev namespace
+	@./scripts/gke-port-forward.sh prometheus
+
+gke-observability-status: ## Show detached Grafana/Prometheus port-forward status
+	@./scripts/gke-port-forward.sh status
+
+gke-observability-stop: ## Stop detached Grafana/Prometheus port-forwards
+	@./scripts/gke-port-forward.sh stop

@@ -1,0 +1,111 @@
+---
+name: deploy prod
+
+'on':
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type deploy-prod to confirm production deployment.
+        required: true
+        type: string
+      apply_infra:
+        description: Apply Terraform before deploying workloads.
+        required: true
+        default: false
+        type: boolean
+      image_tag:
+        description: >-
+          Image tag to deploy. Use a release tag or approved commit SHA.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: approved production deployment
+    runs-on: ubuntu-latest
+    if: inputs.confirm == 'deploy-prod'
+    environment: production
+    env:
+      ENVIRONMENT: prod
+      K8S_NAMESPACE: sap-integration-prod
+      DISABLE_INGRESS: 'false'
+      IMAGE_TAG: ${{ inputs.image_tag }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: >-
+            ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Render Terraform prod config
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > terraform/envs/prod/backend.hcl <<EOF_BACKEND
+          bucket = "${TF_STATE_BUCKET}"
+          prefix = "envs/prod"
+          EOF_BACKEND
+          cat > terraform/envs/prod/terraform.tfvars <<EOF_TFVARS
+          project_id                        = "${GCP_PROJECT_ID}"
+          region                            = "${GCP_REGION}"
+          kubernetes_namespace              = "${K8S_NAMESPACE}"
+          gke_disk_type                     = "pd-balanced"
+          gke_disk_size_gb                  = 100
+          private_service_range_address     = "10.140.0.0"
+          master_authorized_networks        = []
+          additional_labels = {
+            owner = "platform-engineering"
+            tier  = "production"
+          }
+          EOF_TFVARS
+
+      - name: Terraform init prod
+        run: >-
+          terraform -chdir=terraform/envs/prod init
+          -backend-config=backend.hcl
+
+      - name: Terraform plan prod
+        run: >-
+          terraform -chdir=terraform/envs/prod plan
+          -var-file=terraform.tfvars
+
+      - name: Terraform apply prod
+        if: inputs.apply_infra
+        run: >-
+          terraform -chdir=terraform/envs/prod apply
+          -var-file=terraform.tfvars
+          -auto-approve
+
+      - name: Deploy workloads to GKE prod
+        run: ./scripts/deploy-gke.sh
+
+      - name: Smoke test prod
+        run: ./scripts/smoke-test-gke.sh

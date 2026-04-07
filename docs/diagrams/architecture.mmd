@@ -1,0 +1,17 @@
+flowchart LR
+    user[Recruiter / tester] --> sap[sap-mock-api]
+    sap --> ingestion[ingestion-api]
+    ingestion --> kafka[(Apache Kafka)]
+    kafka --> processor[event-processor]
+    processor --> db[(PostgreSQL / Cloud SQL)]
+    db --> query[query-api]
+    user --> query
+    processor --> dlq[(sap.integration.dlq.v1)]
+    prometheus[Prometheus] --> grafana[Grafana]
+    sap --> prometheus
+    ingestion --> prometheus
+    processor --> prometheus
+    query --> prometheus
+    terraform[Terraform] --> gcp[GCP infrastructure]
+    helm[Helm] --> gke[GKE workloads]
+    gcp --> gke

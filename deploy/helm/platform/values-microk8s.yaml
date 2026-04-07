@@ -9,6 +9,9 @@ global:
   networkPolicy:
     enabled: false
 
+observability:
+  enabled: false
+
 services:
   sapMockApi:
     image:

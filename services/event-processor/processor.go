@@ -170,6 +170,9 @@ func (a *app) run(ctx context.Context) error {
 				"topic", message.Topic,
 				"partition", message.Partition,
 				"offset", message.Offset,
+				"event_id", envelope.EventID,
+				"event_type", envelope.EventType,
+				"correlation_id", envelope.CorrelationID,
 				"error", err,
 			)
 			time.Sleep(a.config.RetryBackoff)
@@ -217,6 +220,7 @@ func (a *app) processWithRetry(ctx context.Context, message kafkaGo.Message) (do
 				"attempt", attempt,
 				"event_id", envelope.EventID,
 				"event_type", envelope.EventType,
+				"correlation_id", envelope.CorrelationID,
 				"error", err,
 			)
 			time.Sleep(a.config.RetryBackoff)
@@ -621,6 +625,7 @@ func (a *app) publishToDLQ(ctx context.Context, message kafkaGo.Message, envelop
 		"reason", reason,
 		"event_id", envelope.EventID,
 		"event_type", envelope.EventType,
+		"correlation_id", envelope.CorrelationID,
 		"original_topic", message.Topic,
 		"offset", message.Offset,
 	)

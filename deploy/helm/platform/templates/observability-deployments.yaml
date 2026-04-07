@@ -1,0 +1,155 @@
+{{- if and .Values.observability.enabled .Values.observability.prometheus.enabled }}
+{{- $prometheus := .Values.observability.prometheus }}
+{{- $prometheusName := include "platform.componentFullname" (dict "root" . "service" $prometheus) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $prometheusName }}
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" $prometheus) | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+{{ include "platform.selectorLabels" (dict "root" . "service" $prometheus) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "platform.labels" (dict "root" . "service" $prometheus) | nindent 8 }}
+      annotations:
+        checksum/config: {{ (.Files.Get "files/alerts/platform-alerts.yaml") | sha256sum }}
+    spec:
+      securityContext:
+{{ toYaml .Values.global.podSecurityContext | nindent 8 }}
+      containers:
+        - name: prometheus
+          image: {{ printf "%s:%s" $prometheus.image.repository $prometheus.image.tag | quote }}
+          imagePullPolicy: {{ $prometheus.image.pullPolicy }}
+          securityContext:
+{{ toYaml $prometheus.securityContext | nindent 12 }}
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time={{ $prometheus.retention }}
+            - --web.enable-lifecycle
+          ports:
+            - name: http
+              containerPort: {{ $prometheus.containerPort }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 2
+          resources:
+{{ toYaml $prometheus.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+              readOnly: true
+            - name: config
+              mountPath: /etc/prometheus/rules/platform-alerts.yaml
+              subPath: platform-alerts.yaml
+              readOnly: true
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $prometheusName }}-config
+        - name: data
+          emptyDir: {}
+{{- end }}
+
+{{- if and .Values.observability.enabled .Values.observability.grafana.enabled }}
+{{- $grafana := .Values.observability.grafana }}
+{{- $grafanaName := include "platform.componentFullname" (dict "root" . "service" $grafana) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $grafanaName }}
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" $grafana) | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+{{ include "platform.selectorLabels" (dict "root" . "service" $grafana) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "platform.labels" (dict "root" . "service" $grafana) | nindent 8 }}
+      annotations:
+        checksum/config: {{ (.Files.Get "files/dashboards/platform-overview.json") | sha256sum }}
+    spec:
+      containers:
+        - name: grafana
+          image: {{ printf "%s:%s" $grafana.image.repository $grafana.image.tag | quote }}
+          imagePullPolicy: {{ $grafana.image.pullPolicy }}
+          securityContext:
+{{ toYaml $grafana.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $grafana.containerPort }}
+              protocol: TCP
+          env:
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: {{ printf "%v" $grafana.auth.anonymousEnabled | quote }}
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: {{ $grafana.auth.anonymousOrgRole | quote }}
+            - name: GF_AUTH_DISABLE_LOGIN_FORM
+              value: {{ printf "%v" $grafana.auth.disableLoginForm | quote }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 2
+          resources:
+{{ toYaml $grafana.resources | nindent 12 }}
+          volumeMounts:
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+              readOnly: true
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+              readOnly: true
+            - name: provisioning
+              mountPath: /var/lib/grafana/dashboards/platform-overview.json
+              subPath: platform-overview.json
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: provisioning
+          configMap:
+            name: {{ $grafanaName }}-provisioning
+        - name: data
+          emptyDir: {}
+{{- end }}

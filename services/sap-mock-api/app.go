@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -35,6 +36,7 @@ type app struct {
 	logger     *slog.Logger
 	httpClient *http.Client
 	samples    sampleCatalog
+	metrics    *metrics
 }
 
 func newApp(cfg appConfig, logger *slog.Logger, samples sampleCatalog) *app {
@@ -45,6 +47,7 @@ func newApp(cfg appConfig, logger *slog.Logger, samples sampleCatalog) *app {
 			Timeout: cfg.DispatchTimeout,
 		},
 		samples: samples,
+		metrics: newMetrics(),
 	}
 }
 
@@ -82,6 +85,7 @@ func (a *app) handleSalesOrderCreate(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := a.salesOrderPayloadFromRequest(r, a.samples.SalesOrderCreate)
 	if err != nil {
+		a.metrics.simulationsTotal.WithLabelValues(domain.EventTypeSalesOrderCreated, "invalid").Inc()
 		httpx.WriteError(w, http.StatusBadRequest, err.Error(), httpx.CorrelationIDFromContext(r.Context()))
 		return
 	}
@@ -97,6 +101,7 @@ func (a *app) handleSalesOrderUpdate(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := a.salesOrderPayloadFromRequest(r, a.samples.SalesOrderUpdate)
 	if err != nil {
+		a.metrics.simulationsTotal.WithLabelValues(domain.EventTypeSalesOrderUpdated, "invalid").Inc()
 		httpx.WriteError(w, http.StatusBadRequest, err.Error(), httpx.CorrelationIDFromContext(r.Context()))
 		return
 	}
@@ -113,6 +118,7 @@ func (a *app) handleCustomerUpdate(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := a.customerPayloadFromRequest(r, a.samples.CustomerUpdate)
 	if err != nil {
+		a.metrics.simulationsTotal.WithLabelValues(domain.EventTypeCustomerUpdated, "invalid").Inc()
 		httpx.WriteError(w, http.StatusBadRequest, err.Error(), httpx.CorrelationIDFromContext(r.Context()))
 		return
 	}
@@ -129,6 +135,7 @@ func (a *app) handleInvoiceIssued(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := a.invoicePayloadFromRequest(r, a.samples.InvoiceIssued)
 	if err != nil {
+		a.metrics.simulationsTotal.WithLabelValues(domain.EventTypeInvoiceIssued, "invalid").Inc()
 		httpx.WriteError(w, http.StatusBadRequest, err.Error(), httpx.CorrelationIDFromContext(r.Context()))
 		return
 	}
@@ -199,15 +206,26 @@ func (a *app) respondWithSimulation(w http.ResponseWriter, r *http.Request, stat
 
 	shouldDispatch := a.config.AutoDispatch || strings.EqualFold(r.URL.Query().Get("dispatch"), "true")
 	if shouldDispatch {
+		started := time.Now()
 		dispatchResult, err := a.dispatch(r.Context(), ingestionPath, dispatchMethod, payload, httpx.CorrelationIDFromContext(r.Context()))
+		a.metrics.dispatchDuration.WithLabelValues(eventType).Observe(time.Since(started).Seconds())
 		if err != nil {
+			a.metrics.dispatchTotal.WithLabelValues(eventType, "error").Inc()
+			a.metrics.simulationsTotal.WithLabelValues(eventType, "dispatch_error").Inc()
 			httpx.WriteError(w, http.StatusBadGateway, err.Error(), httpx.CorrelationIDFromContext(r.Context()))
 			return
 		}
+		a.metrics.dispatchTotal.WithLabelValues(eventType, "success").Inc()
 		response.Dispatched = true
 		response.DispatchResult = dispatchResult
 	}
 
+	a.metrics.simulationsTotal.WithLabelValues(eventType, "success").Inc()
+	a.logger.Info("sap simulation completed",
+		"event_type", eventType,
+		"dispatched", response.Dispatched,
+		"correlation_id", httpx.CorrelationIDFromContext(r.Context()),
+	)
 	httpx.WriteJSON(w, status, response)
 }
 

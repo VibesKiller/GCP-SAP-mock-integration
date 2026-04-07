@@ -35,6 +35,14 @@ global:
   networkPolicy:
     enabled: false
 
+observability:
+  enabled: true
+  prometheus:
+    enabled: true
+    retention: 6h
+  grafana:
+    enabled: true
+
 services:
   sapMockApi:
     image:

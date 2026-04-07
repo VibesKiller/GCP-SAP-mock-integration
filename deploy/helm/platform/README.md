@@ -12,6 +12,7 @@ This chart packages the Go services for Kubernetes and GKE without attempting to
 - Ingress for `sap-mock-api`, `ingestion-api` and `query-api`
 - HPA for services with autoscaling enabled
 - Optional egress-only NetworkPolicy baseline
+- Optional namespace-local Prometheus and Grafana for GKE/dev demos
 
 ## External Dependencies
 
@@ -145,3 +146,40 @@ Use it when the Kafka and PostgreSQL network ranges are known. In GKE, populate 
 - Kafka listeners
 - PostgreSQL endpoint
 - optionally additional control-plane integrations
+
+## Optional Observability On GKE
+
+The chart can deploy a compact Prometheus + Grafana stack for the application namespace.
+
+This is enabled in `values-dev.yaml` and disabled in `values-prod.yaml` by default:
+
+```yaml
+observability:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+```
+
+The Prometheus instance scrapes the four Go services through their ClusterIP Services and loads the alert rules packaged under `deploy/helm/platform/files/alerts/`.
+
+Grafana provisions:
+
+- datasource: `Prometheus`
+- folder: `SAP Integration Platform`
+- dashboard: `SAP Integration Platform Overview`
+
+Access Grafana after a GKE dev deployment with:
+
+```bash
+make gke-grafana
+```
+
+Then open:
+
+```text
+http://localhost:3000/d/sap-integration-platform-overview/sap-integration-platform-overview
+```
+
+For production, keep `observability.enabled=false` unless this namespace-local stack is intentionally approved. A shared organization-wide observability stack is usually a better production default.

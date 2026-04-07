@@ -1,19 +1,10 @@
-# ADR-0003: Separate Terraform and Helm Responsibilities
+# ADR-0003 Compatibility Note: Terraform and Helm Boundaries
 
-## Status
+This file is kept for compatibility with earlier documentation links.
 
-Accepted
+The final decisions are split into:
 
-## Context
+- `adr-0003-terraform-for-gcp-infrastructure.md`
+- `adr-0006-helm-for-workload-packaging.md`
 
-The platform targets GCP and GKE and needs a clean separation between infrastructure provisioning and workload deployment.
-
-## Decision
-
-Terraform provisions cloud infrastructure such as GKE, Artifact Registry, networking, PostgreSQL and Secret Manager. Helm packages and deploys Kubernetes workloads and runtime configuration.
-
-## Consequences
-
-- Infrastructure lifecycle and application lifecycle remain independently manageable.
-- Environment composition becomes easier to explain in interviews and maintain in Git.
-- CI/CD can apply infrastructure and workloads with different approval and rollout policies.
+The architectural boundary remains the same: Terraform provisions Google Cloud infrastructure, while Helm packages and deploys Kubernetes workloads.

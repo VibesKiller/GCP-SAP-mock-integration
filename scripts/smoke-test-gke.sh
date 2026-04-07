@@ -15,6 +15,8 @@ SAP_SERVICE="${SAP_SERVICE:-${HELM_RELEASE}-sap-mock-api}"
 INGESTION_SERVICE="${INGESTION_SERVICE:-${HELM_RELEASE}-ingestion-api}"
 EVENT_PROCESSOR_SERVICE="${EVENT_PROCESSOR_SERVICE:-${HELM_RELEASE}-event-processor}"
 QUERY_SERVICE="${QUERY_SERVICE:-${HELM_RELEASE}-query-api}"
+PROMETHEUS_SERVICE="${PROMETHEUS_SERVICE:-${HELM_RELEASE}-prometheus}"
+GRAFANA_SERVICE="${GRAFANA_SERVICE:-${HELM_RELEASE}-grafana}"
 
 CUSTOMER_SAMPLE="$REPO_ROOT/services/sap-mock-api/sample-data/customer-update.json"
 ORDER_SAMPLE="$REPO_ROOT/services/sap-mock-api/sample-data/sales-order-create.json"
@@ -69,6 +71,15 @@ for deployment in \
   kubectl_cmd -n "$K8S_NAMESPACE" rollout status "deployment/${deployment}" --timeout=240s
 done
 
+OBSERVABILITY_ENABLED=false
+if kubectl_cmd -n "$K8S_NAMESPACE" get deployment "$PROMETHEUS_SERVICE" >/dev/null 2>&1 &&
+  kubectl_cmd -n "$K8S_NAMESPACE" get deployment "$GRAFANA_SERVICE" >/dev/null 2>&1; then
+  OBSERVABILITY_ENABLED=true
+  log "waiting for observability rollouts"
+  kubectl_cmd -n "$K8S_NAMESPACE" rollout status "deployment/${PROMETHEUS_SERVICE}" --timeout=240s
+  kubectl_cmd -n "$K8S_NAMESPACE" rollout status "deployment/${GRAFANA_SERVICE}" --timeout=240s
+fi
+
 log "starting disposable smoke-test pod"
 cleanup
 trap cleanup EXIT
@@ -84,6 +95,22 @@ run_in_smoke_pod "curl -fsS http://${SAP_SERVICE}/health >/dev/null"
 run_in_smoke_pod "curl -fsS http://${INGESTION_SERVICE}/ready >/dev/null"
 run_in_smoke_pod "curl -fsS http://${EVENT_PROCESSOR_SERVICE}/ready >/dev/null"
 run_in_smoke_pod "curl -fsS http://${QUERY_SERVICE}/health >/dev/null"
+
+if [[ "$OBSERVABILITY_ENABLED" == "true" ]]; then
+  log "verifying Prometheus and Grafana endpoints"
+  run_in_smoke_pod "curl -fsS http://${PROMETHEUS_SERVICE}/-/ready >/dev/null"
+  run_in_smoke_pod "curl -fsS http://${GRAFANA_SERVICE}/api/health >/dev/null"
+  retry_in_smoke_pod \
+    "Prometheus service scrape targets" \
+    "curl -fsS 'http://${PROMETHEUS_SERVICE}/api/v1/query?query=up%7Bjob%3D~%22sap-mock-api%7Cingestion-api%7Cevent-processor%7Cquery-api%22%7D' | grep -q 'sap-mock-api'" \
+    20 \
+    3
+  retry_in_smoke_pod \
+    "Grafana dashboard provisioning" \
+    "curl -fsS 'http://${GRAFANA_SERVICE}/api/search?query=SAP%20Integration%20Platform' | grep -q 'sap-integration-platform-overview'" \
+    20 \
+    3
+fi
 
 log "sending business events through sap-mock-api"
 run_in_smoke_pod "curl -fsS -X POST 'http://${SAP_SERVICE}/api/v1/simulations/customers/update?dispatch=true' >/dev/null"
@@ -102,3 +129,6 @@ printf '  2. service-to-service health checks passed inside the namespace\n'
 printf '  3. sap-mock-api dispatched events to ingestion-api\n'
 printf '  4. ingestion-api and event-processor used Kafka successfully\n'
 printf '  5. event-processor persisted projections queried by query-api\n'
+if [[ "$OBSERVABILITY_ENABLED" == "true" ]]; then
+  printf '  6. Prometheus and Grafana were reachable and provisioned\n'
+fi

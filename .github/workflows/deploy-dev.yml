@@ -1,0 +1,113 @@
+---
+name: deploy dev
+
+'on':
+  workflow_dispatch:
+    inputs:
+      apply_infra:
+        description: Apply Terraform before deploying workloads.
+        required: true
+        default: true
+        type: boolean
+      image_tag:
+        description: Optional image tag override for the deploy script.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: terraform apply and helm deploy dev
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      ENVIRONMENT: dev
+      K8S_NAMESPACE: sap-integration-dev
+      DISABLE_INGRESS: 'true'
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: >-
+            ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Render Terraform dev config
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > terraform/envs/dev/backend.hcl <<EOF_BACKEND
+          bucket = "${TF_STATE_BUCKET}"
+          prefix = "envs/dev"
+          EOF_BACKEND
+          cat > terraform/envs/dev/terraform.tfvars <<EOF_TFVARS
+          project_id                        = "${GCP_PROJECT_ID}"
+          region                            = "${GCP_REGION}"
+          kubernetes_namespace              = "${K8S_NAMESPACE}"
+          gke_node_locations                = ["${GCP_REGION}-a"]
+          gke_disk_type                     = "pd-standard"
+          gke_disk_size_gb                  = 50
+          gke_services_cidr                 = "10.50.0.0/20"
+          private_service_range_address     = "10.30.0.0"
+          auto_detect_workstation_public_ip = false
+          master_authorized_networks        = []
+          additional_labels = {
+            owner = "platform-engineering"
+            cost  = "demo"
+          }
+          EOF_TFVARS
+
+      - name: Terraform init dev
+        run: >-
+          terraform -chdir=terraform/envs/dev init
+          -backend-config=backend.hcl
+
+      - name: Terraform apply dev
+        if: inputs.apply_infra
+        run: >-
+          terraform -chdir=terraform/envs/dev apply
+          -var-file=terraform.tfvars
+          -auto-approve
+
+      - name: Deploy workloads to GKE dev
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: ./scripts/deploy-gke.sh
+
+      - name: Smoke test dev
+        run: ./scripts/smoke-test-gke.sh

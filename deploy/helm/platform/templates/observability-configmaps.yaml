@@ -1,0 +1,102 @@
+{{- if and .Values.observability.enabled .Values.observability.prometheus.enabled }}
+{{- $prometheus := .Values.observability.prometheus }}
+{{- $prometheusName := include "platform.componentFullname" (dict "root" . "service" $prometheus) }}
+{{- $sapMockName := include "platform.componentFullname" (dict "root" . "service" .Values.services.sapMockApi) }}
+{{- $ingestionName := include "platform.componentFullname" (dict "root" . "service" .Values.services.ingestionApi) }}
+{{- $processorName := include "platform.componentFullname" (dict "root" . "service" .Values.services.eventProcessor) }}
+{{- $queryName := include "platform.componentFullname" (dict "root" . "service" .Values.services.queryApi) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $prometheusName }}-config
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" $prometheus) | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ $prometheus.scrapeInterval }}
+      evaluation_interval: {{ $prometheus.evaluationInterval }}
+
+    rule_files:
+      - /etc/prometheus/rules/platform-alerts.yaml
+
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets:
+              - localhost:{{ $prometheus.containerPort }}
+
+      {{- if .Values.services.sapMockApi.enabled }}
+      - job_name: sap-mock-api
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - {{ printf "%s:%v" $sapMockName .Values.services.sapMockApi.service.port | quote }}
+      {{- end }}
+
+      {{- if .Values.services.ingestionApi.enabled }}
+      - job_name: ingestion-api
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - {{ printf "%s:%v" $ingestionName .Values.services.ingestionApi.service.port | quote }}
+      {{- end }}
+
+      {{- if .Values.services.eventProcessor.enabled }}
+      - job_name: event-processor
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - {{ printf "%s:%v" $processorName .Values.services.eventProcessor.service.port | quote }}
+      {{- end }}
+
+      {{- if .Values.services.queryApi.enabled }}
+      - job_name: query-api
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - {{ printf "%s:%v" $queryName .Values.services.queryApi.service.port | quote }}
+      {{- end }}
+  platform-alerts.yaml: |
+{{ .Files.Get "files/alerts/platform-alerts.yaml" | nindent 4 }}
+{{- end }}
+
+{{- if and .Values.observability.enabled .Values.observability.grafana.enabled }}
+{{- $grafana := .Values.observability.grafana }}
+{{- $prometheus := .Values.observability.prometheus }}
+{{- $prometheusName := include "platform.componentFullname" (dict "root" . "service" $prometheus) }}
+{{- $grafanaName := include "platform.componentFullname" (dict "root" . "service" $grafana) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $grafanaName }}-provisioning
+  namespace: {{ include "platform.namespace" . }}
+  labels:
+{{ include "platform.labels" (dict "root" . "service" $grafana) | nindent 4 }}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: {{ printf "http://%s:%v" $prometheusName $prometheus.service.port }}
+        isDefault: true
+        editable: false
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: sap-integration-platform
+        orgId: 1
+        folder: SAP Integration Platform
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+  platform-overview.json: |
+{{ .Files.Get "files/dashboards/platform-overview.json" | nindent 4 }}
+{{- end }}
