@@ -57,6 +57,8 @@ For Google Managed Kafka with the current Go implementation:
 
 This keeps local Docker Compose development on plaintext Kafka while enabling GKE workloads to authenticate with refreshed Google access tokens obtained through Application Default Credentials.
 
+If `global.kafka.authMode=plain` is used for a non-GCP Kafka cluster, set `KAFKA_SASL_PASSWORD` through `services.ingestionApi.kafkaSASLPasswordSecret` and `services.eventProcessor.kafkaSASLPasswordSecret` rather than storing it in a ConfigMap.
+
 ## Namespace Assumption
 
 The default logical namespace is `sap-integration`, but this is overridden by `values-dev.yaml` and `values-prod.yaml`.
@@ -89,6 +91,16 @@ In a GKE setup that uses Google Secret Manager, the expected pattern is:
 1. Terraform provisions the Secret Manager secret and IAM bindings
 2. a secret sync mechanism exposes the value as a Kubernetes Secret in the application namespace
 3. this chart references the Kubernetes Secret by name only
+
+## Ingress Model
+
+The chart uses host-based routing instead of path rewrites:
+
+- `sap-mock-api.<domain>` -> `sap-mock-api`
+- `ingestion-api.<domain>` -> `ingestion-api`
+- `query-api.<domain>` -> `query-api`
+
+This keeps the GKE/GCE Ingress path realistic because the Go services serve their native paths such as `/api/v1/...`, `/health`, `/ready` and `/metrics`. If a single-host path-prefix model is required, add an ingress controller or gateway layer that performs explicit path rewriting.
 
 ## Install On Dev
 

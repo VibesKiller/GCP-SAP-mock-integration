@@ -28,15 +28,19 @@ global:
     className: gce
     annotations: {}
     hosts:
-      - host: sap-integration.example.internal
+      - host: sap-mock-api.example.internal
         paths:
-          - path: /mock
+          - path: /
             pathType: Prefix
             service: sapMockApi
-          - path: /ingest
+      - host: ingestion-api.example.internal
+        paths:
+          - path: /
             pathType: Prefix
             service: ingestionApi
-          - path: /query
+      - host: query-api.example.internal
+        paths:
+          - path: /
             pathType: Prefix
             service: queryApi
     tls: []
@@ -211,6 +215,10 @@ services:
     sourceSystem: sap-s4hana
     kafkaClientId: ingestion-api
     kafkaSASLUsername: ""
+    kafkaSASLPasswordSecret:
+      name: ""
+      key: password
+      optional: false
     kafkaPrincipalEmail: ""
     kafkaWriteTimeout: 5s
     timeouts:
@@ -271,6 +279,10 @@ services:
       annotations: {}
     kafkaClientId: event-processor
     kafkaSASLUsername: ""
+    kafkaSASLPasswordSecret:
+      name: ""
+      key: password
+      optional: false
     kafkaPrincipalEmail: ""
     kafkaCommitTimeout: 5s
     retryMaxAttempts: 3

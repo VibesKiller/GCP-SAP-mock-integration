@@ -600,12 +600,16 @@ func (a *app) publishToDLQ(ctx context.Context, message kafkaGo.Message, envelop
 		{Key: "original_topic", Value: []byte(message.Topic)},
 		{Key: "original_partition", Value: []byte(fmt.Sprintf("%d", message.Partition))},
 		{Key: "original_offset", Value: []byte(fmt.Sprintf("%d", message.Offset))},
+		{Key: "original_key", Value: []byte(originalKey)},
+		{Key: "partition_key", Value: []byte(originalKey)},
 	}
 
 	if envelope.EventID != "" {
 		dlqHeaders = append(dlqHeaders,
 			kafkaGo.Header{Key: "event_id", Value: []byte(envelope.EventID)},
 			kafkaGo.Header{Key: "event_type", Value: []byte(envelope.EventType)},
+			kafkaGo.Header{Key: "version", Value: []byte(envelope.Version)},
+			kafkaGo.Header{Key: "source", Value: []byte(envelope.Source)},
 			kafkaGo.Header{Key: "correlation_id", Value: []byte(envelope.CorrelationID)},
 		)
 	}

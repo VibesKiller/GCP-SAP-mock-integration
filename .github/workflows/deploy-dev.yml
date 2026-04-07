@@ -84,7 +84,7 @@ jobs:
           gke_disk_size_gb                  = 50
           gke_services_cidr                 = "10.50.0.0/20"
           private_service_range_address     = "10.30.0.0"
-          auto_detect_workstation_public_ip = false
+          auto_detect_workstation_public_ip = true
           master_authorized_networks        = []
           additional_labels = {
             owner = "platform-engineering"

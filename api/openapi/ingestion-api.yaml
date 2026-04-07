@@ -12,6 +12,26 @@ paths:
       responses:
         '200':
           description: Service is healthy
+  /ready:
+    get:
+      summary: Readiness check including Kafka connectivity
+      responses:
+        '200':
+          description: Service is ready
+        '503':
+          description: Kafka dependency is not reachable
+  /live:
+    get:
+      summary: Liveness check
+      responses:
+        '200':
+          description: Process is live
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      responses:
+        '200':
+          description: Prometheus metrics
   /api/v1/sap/sales-orders:
     post:
       summary: Accept a sales order creation payload from SAP

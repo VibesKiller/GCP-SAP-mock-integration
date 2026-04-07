@@ -12,21 +12,27 @@ global:
       kubernetes.io/ingress.allow-http: "false"
       kubernetes.io/ingress.global-static-ip-name: sap-integration-prod-ip
     hosts:
-      - host: sap-integration.example.com
+      - host: sap-mock-api.sap-integration.example.com
         paths:
-          - path: /mock
+          - path: /
             pathType: Prefix
             service: sapMockApi
-          - path: /ingest
+      - host: ingestion-api.sap-integration.example.com
+        paths:
+          - path: /
             pathType: Prefix
             service: ingestionApi
-          - path: /query
+      - host: query-api.sap-integration.example.com
+        paths:
+          - path: /
             pathType: Prefix
             service: queryApi
     tls:
       - secretName: sap-integration-prod-tls
         hosts:
-          - sap-integration.example.com
+          - sap-mock-api.sap-integration.example.com
+          - ingestion-api.sap-integration.example.com
+          - query-api.sap-integration.example.com
   kafka:
     bootstrapServers: kafka-bootstrap.shared-platform.svc.cluster.local:9092
     authMode: google_access_token

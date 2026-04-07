@@ -30,7 +30,7 @@ sed -n '1,220p' platform/kafka/topic-catalog.yaml
 
 ## What To Validate
 
-- DLQ message headers include `failure_reason`, `original_topic`, `original_partition`, `original_offset`, `event_id`, `event_type` and `correlation_id` where available.
+- DLQ message headers include `failure_reason`, `original_topic`, `original_partition`, `original_offset`, `original_key`, `event_id`, `event_type`, `version`, `source`, `correlation_id` and `partition_key` where available.
 - The failure is not caused by a schema mismatch or unsupported `event_type`.
 - The database is healthy and not causing retries to exhaust.
 - `processed_events` contains DLQ status for events with valid event IDs.

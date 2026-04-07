@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -114,8 +115,12 @@ func DecodeJSON(r *http.Request, dst any) error {
 		return err
 	}
 
-	if decoder.More() {
-		return io.ErrUnexpectedEOF
+	var extra json.RawMessage
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("request body must contain a single JSON document")
+		}
+		return err
 	}
 
 	return nil
@@ -136,6 +141,14 @@ func DecodeOptionalJSON(r *http.Request, dst any) (bool, error) {
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {
+		return false, err
+	}
+
+	var extra json.RawMessage
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return false, fmt.Errorf("request body must contain a single JSON document")
+		}
 		return false, err
 	}
 

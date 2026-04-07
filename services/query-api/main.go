@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"gcp-sap-mock-integration/internal/platform/logging"
 	platformRuntime "gcp-sap-mock-integration/internal/platform/runtime"
@@ -18,7 +19,7 @@ func main() {
 	application, err := newApp(cfg, logger)
 	if err != nil {
 		logger.Error("initialize query-api", "error", err)
-		log.Fatalf("initialize query-api: %v", err)
+		os.Exit(1)
 	}
 	defer application.close()
 
@@ -35,7 +36,7 @@ func main() {
 
 	if err := platformRuntime.RunHTTPServer(ctx, logger, server); err != nil {
 		logger.Error("query-api stopped with error", "error", err)
-		log.Fatalf("query-api stopped with error: %v", err)
+		os.Exit(1)
 	}
 
 	logger.Info("query-api stopped gracefully")

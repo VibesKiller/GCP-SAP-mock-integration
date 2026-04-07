@@ -70,6 +70,8 @@ Required Helm values for that path:
 - `services.ingestionApi.kafkaPrincipalEmail=<ingestion-api-gsa>`
 - `services.eventProcessor.kafkaPrincipalEmail=<event-processor-gsa>`
 
+For non-GCP Kafka clusters that require SASL/PLAIN, inject `KAFKA_SASL_PASSWORD` through the `kafkaSASLPasswordSecret` values rather than putting the password in a ConfigMap.
+
 ## Required Secrets
 
 The chart references existing Kubernetes Secrets rather than embedding sensitive values.
@@ -87,6 +89,16 @@ kubectl -n sap-integration-dev create secret generic sap-integration-postgres-de
 ```
 
 In GKE, a professional pattern is to keep the secret in Google Secret Manager and sync it into Kubernetes using an approved mechanism. The Helm chart stays intentionally neutral and only references the resulting Kubernetes Secret.
+
+## Ingress Model
+
+The default GKE overlays use host-based routing:
+
+- `sap-mock-api-dev.example.internal`
+- `ingestion-api-dev.example.internal`
+- `query-api-dev.example.internal`
+
+Production follows the same pattern with production hostnames under the example domain. This avoids relying on path rewrites because the Go services expose native paths such as `/api/v1/...`, `/health`, `/ready` and `/metrics`.
 
 ## Deploy To Dev
 

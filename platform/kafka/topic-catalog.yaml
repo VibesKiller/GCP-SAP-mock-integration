@@ -14,6 +14,7 @@ topics:
       - partition_key
     consumerGroups:
       - sap-integration.event-processor.v1
+      - sap-integration.notification-worker.v1
     description: Canonical sales order events normalized from SAP REST payloads.
 
   - name: sap.customers.v1
@@ -48,6 +49,7 @@ topics:
       - partition_key
     consumerGroups:
       - sap-integration.event-processor.v1
+      - sap-integration.notification-worker.v1
     description: Canonical invoice events normalized from SAP REST payloads.
 
   - name: sap.integration.dlq.v1
@@ -61,8 +63,12 @@ topics:
       - original_topic
       - original_partition
       - original_offset
+      - original_key
       - event_id
       - event_type
+      - version
+      - source
       - correlation_id
+      - partition_key
     consumerGroups: []
     description: Dead-letter topic for malformed or non-recoverable events and exhausted retries.

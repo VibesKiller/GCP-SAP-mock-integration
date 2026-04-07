@@ -74,3 +74,38 @@ func TestHeadersForEnvelope(t *testing.T) {
 		t.Fatalf("expected correlation_id header %q, got %q", envelope.CorrelationID, string(headers[4].Value))
 	}
 }
+
+func TestTopicCatalogDLQHeaders(t *testing.T) {
+	required := map[string]bool{
+		"failure_reason":     false,
+		"original_topic":     false,
+		"original_partition": false,
+		"original_offset":    false,
+		"original_key":       false,
+		"event_id":           false,
+		"event_type":         false,
+		"version":            false,
+		"source":             false,
+		"correlation_id":     false,
+		"partition_key":      false,
+	}
+
+	for _, topic := range TopicCatalog() {
+		if topic.Name != TopicIntegrationDLQ {
+			continue
+		}
+		for _, header := range topic.Headers {
+			if _, ok := required[header]; ok {
+				required[header] = true
+			}
+		}
+		for header, seen := range required {
+			if !seen {
+				t.Fatalf("expected DLQ header %q to be documented", header)
+			}
+		}
+		return
+	}
+
+	t.Fatalf("expected %s in topic catalog", TopicIntegrationDLQ)
+}

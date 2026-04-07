@@ -8,9 +8,9 @@ The platform is designed with least privilege as a default expectation.
 - Workload Identity is preferred over static cloud credentials.
 - Secret access is scoped per service and per environment.
 - PostgreSQL users are separated by runtime responsibility when query and write paths diverge.
-- Kafka ACLs will be introduced per producer and consumer group once service principals are defined.
+- Kafka ACLs are provisioned per producer, topic and consumer group in the Terraform-managed Kafka layer.
 
-## Planned GCP Mapping
+## GCP Mapping
 
 - `ingestion-api`: write access to `sap.sales-orders.v1`, `sap.customers.v1` and `sap.invoices.v1`, plus read access to its own secrets.
 - `event-processor`: read business topics, write `sap.integration.dlq.v1` and write PostgreSQL projections.

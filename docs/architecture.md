@@ -58,7 +58,7 @@ Topics:
 Consumer groups:
 
 - `sap-integration.event-processor.v1`
-- `sap-integration.notification-worker.v1` reserved
+- `sap-integration.notification-worker.v1` reserved for future sales order and invoice fan-out
 
 Partitioning strategy:
 
@@ -75,7 +75,7 @@ Kafka headers:
 - `source`
 - `correlation_id`
 - `partition_key`
-- DLQ metadata: `failure_reason`, `original_topic`, `original_partition`, `original_offset`
+- DLQ metadata: `failure_reason`, `original_topic`, `original_partition`, `original_offset`, `original_key`
 
 The topic catalog is source controlled under `platform/kafka/topic-catalog.yaml` and is used by Terraform to provision Managed Kafka topics on GCP.
 

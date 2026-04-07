@@ -16,6 +16,7 @@ const (
 	TopicInvoices               = "sap.invoices.v1"
 	TopicIntegrationDLQ         = "sap.integration.dlq.v1"
 	ConsumerGroupEventProcessor = "sap-integration.event-processor.v1"
+	ConsumerGroupNotification   = "sap-integration.notification-worker.v1"
 )
 
 type TopicDefinition struct {
@@ -122,6 +123,7 @@ func TopicCatalog() []TopicDefinition {
 				"original_topic",
 				"original_partition",
 				"original_offset",
+				"original_key",
 			),
 			Description: "Dead-letter topic for non-recoverable processor failures and exhausted retries.",
 		},

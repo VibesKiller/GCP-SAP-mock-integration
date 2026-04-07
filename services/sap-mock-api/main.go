@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"gcp-sap-mock-integration/internal/platform/logging"
 	platformRuntime "gcp-sap-mock-integration/internal/platform/runtime"
@@ -19,7 +20,7 @@ func main() {
 	samples, err := loadSamples()
 	if err != nil {
 		logger.Error("load sample catalog", "error", err)
-		log.Fatalf("load sample catalog: %v", err)
+		os.Exit(1)
 	}
 
 	application := newApp(cfg, logger, samples)
@@ -36,7 +37,7 @@ func main() {
 
 	if err := platformRuntime.RunHTTPServer(ctx, logger, server); err != nil {
 		logger.Error("sap-mock-api stopped with error", "error", err)
-		log.Fatalf("sap-mock-api stopped with error: %v", err)
+		os.Exit(1)
 	}
 
 	logger.Info("sap-mock-api stopped gracefully")

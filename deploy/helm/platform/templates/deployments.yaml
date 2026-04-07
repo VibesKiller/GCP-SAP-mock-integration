@@ -51,11 +51,21 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "platform.componentFullname" (dict "root" $ "service" $service) }}
-          {{- if or $service.extraEnv $service.extraSecretEnv }}
+          {{- if or $service.extraEnv $service.extraSecretEnv (and $service.kafkaSASLPasswordSecret $service.kafkaSASLPasswordSecret.name) }}
           env:
             {{- range $env := $service.extraEnv }}
             - name: {{ $env.name }}
               value: {{ $env.value | quote }}
+            {{- end }}
+            {{- with $service.kafkaSASLPasswordSecret }}
+            {{- if .name }}
+            - name: KAFKA_SASL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name | quote }}
+                  key: {{ default "password" .key | quote }}
+                  optional: {{ default false .optional }}
+            {{- end }}
             {{- end }}
             {{- range $secretEnv := $service.extraSecretEnv }}
             - name: {{ $secretEnv.name }}

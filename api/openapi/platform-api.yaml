@@ -11,6 +11,32 @@ servers:
   - url: http://localhost:8083
     description: query-api
 paths:
+  /health:
+    get:
+      summary: Runtime health endpoint exposed by all HTTP services
+      responses:
+        '200':
+          description: Service is healthy or ready
+  /ready:
+    get:
+      summary: Runtime readiness endpoint exposed by all HTTP services
+      responses:
+        '200':
+          description: Service dependencies are ready
+        '503':
+          description: One or more service dependencies are degraded
+  /live:
+    get:
+      summary: Runtime liveness endpoint exposed by all HTTP services
+      responses:
+        '200':
+          description: Process is live
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint exposed by all HTTP services
+      responses:
+        '200':
+          description: Prometheus metrics
   /api/v1/simulations/sales-orders/create:
     post:
       summary: Generate a realistic SAP sales order payload

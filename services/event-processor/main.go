@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 
 	"gcp-sap-mock-integration/internal/platform/logging"
 	platformRuntime "gcp-sap-mock-integration/internal/platform/runtime"
@@ -22,7 +23,7 @@ func main() {
 	application, err := newApp(rootCtx, cfg, logger)
 	if err != nil {
 		logger.Error("initialize event-processor", "error", err)
-		log.Fatalf("initialize event-processor: %v", err)
+		os.Exit(1)
 	}
 	defer application.close()
 
@@ -50,7 +51,7 @@ func main() {
 		if err != nil {
 			cancel()
 			logger.Error("event-processor stopped with error", "error", err)
-			log.Fatalf("event-processor stopped with error: %v", err)
+			os.Exit(1)
 		}
 	case <-runCtx.Done():
 	}

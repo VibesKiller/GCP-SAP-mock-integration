@@ -11,15 +11,19 @@ global:
     annotations:
       kubernetes.io/ingress.allow-http: "false"
     hosts:
-      - host: sap-integration-dev.example.internal
+      - host: sap-mock-api-dev.example.internal
         paths:
-          - path: /mock
+          - path: /
             pathType: Prefix
             service: sapMockApi
-          - path: /ingest
+      - host: ingestion-api-dev.example.internal
+        paths:
+          - path: /
             pathType: Prefix
             service: ingestionApi
-          - path: /query
+      - host: query-api-dev.example.internal
+        paths:
+          - path: /
             pathType: Prefix
             service: queryApi
   kafka:
