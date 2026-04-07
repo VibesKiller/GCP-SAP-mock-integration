@@ -1,6 +1,6 @@
 # GCP Enterprise Integration Platform
 
-Enterprise-ready SAP-style integration platform built on Google Cloud using Go, Apache Kafka, Kubernetes, Terraform and PostgreSQL.Enterprise-ready SAP-style integration platform built on Google Cloud using Go, Apache Kafka, Kubernetes, Terraform and PostgreSQL.
+Enterprise-ready SAP-style integration platform built on Google Cloud using Go, Apache Kafka, Kubernetes, Terraform and PostgreSQL.
 
 This repository is intended to serve as a portfolio for DevOps, Cloud, and Platform Engineer interviews, and aims to demonstrate skills in designing, developing, integrating, and maintaining business processes, as well as the ability to manage a cloud-based system built with Infrastructure as Code (IaC).
 
@@ -44,17 +44,31 @@ The platform receives SAP payloads, validates and normalizes them, publishes can
 
 ## Architecture
 
-SAP (mock API)
-        ↓
-Ingestion Service
-        ↓
-Apache Kafka (topics)
-        ↓
-Event Processor
-        ↓
-PostgreSQL (Cloud SQL)
-        ↓
-Query API
+```mermaid
+flowchart LR
+  SAP[SAP Mock Events] --> MockAPI[sap-mock-api]
+  MockAPI --> Ingestion[ingestion-api]
+  Ingestion --> Kafka[(Apache Kafka)]
+  Kafka --> Processor[event-processor]
+  Processor --> DB[(PostgreSQL / Cloud SQL)]
+  Query[query-api] --> DB
+  User[API Consumer] --> Query
+
+  Kafka --> DLQ[(sap.integration.dlq.v1)]
+
+  subgraph Topics[Kafka topics]
+    Sales[sap.sales-orders.v1]
+    Customers[sap.customers.v1]
+    Invoices[sap.invoices.v1]
+  end
+
+  Ingestion -. publishes .-> Sales
+  Ingestion -. publishes .-> Customers
+  Ingestion -. publishes .-> Invoices
+  Sales -. consumed by .-> Processor
+  Customers -. consumed by .-> Processor
+  Invoices -. consumed by .-> Processor
+```
 
 Service responsibilities:
 
@@ -72,6 +86,16 @@ Kafka contracts:
 - Main consumer group: `sap-integration.event-processor.v1`
 
 The local stack uses real Apache Kafka in Docker Compose. The GCP target is designed for Google Managed Service for Apache Kafka with TLS and Workload Identity based authentication.
+
+## Features
+
+- Event-driven architecture
+- Idempotent event processing
+- Dead-letter queue (DLQ)
+- Retry mechanisms
+- Structured logging with correlation ID
+- Health checks and metrics
+- CI/CD pipelines
 
 ## System Dependencies
 
