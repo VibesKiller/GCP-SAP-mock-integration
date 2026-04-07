@@ -24,6 +24,14 @@ global:
             service: queryApi
   kafka:
     bootstrapServers: kafka-bootstrap.platform-shared.svc.cluster.local:9092
+    authMode: google_access_token
+    tls:
+      enabled: true
+      insecureSkipVerify: false
+      serverName: ""
+      caCertFile: ""
+    gcp:
+      accessTokenScope: https://www.googleapis.com/auth/cloud-platform
   networkPolicy:
     enabled: false
 
@@ -33,6 +41,7 @@ services:
       repository: europe-west6-docker.pkg.dev/changeme-gcp-project-dev/sap-integration/sap-mock-api
       tag: dev
     serviceAccount:
+      name: sap-mock-api
       annotations:
         iam.gke.io/gcp-service-account: sap-mock-api-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
   ingestionApi:
@@ -40,7 +49,9 @@ services:
     image:
       repository: europe-west6-docker.pkg.dev/changeme-gcp-project-dev/sap-integration/ingestion-api
       tag: dev
+    kafkaPrincipalEmail: ingestion-api-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
     serviceAccount:
+      name: ingestion-api
       annotations:
         iam.gke.io/gcp-service-account: ingestion-api-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
     autoscaling:
@@ -53,7 +64,9 @@ services:
     image:
       repository: europe-west6-docker.pkg.dev/changeme-gcp-project-dev/sap-integration/event-processor
       tag: dev
+    kafkaPrincipalEmail: event-processor-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
     serviceAccount:
+      name: event-processor
       annotations:
         iam.gke.io/gcp-service-account: event-processor-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
     extraSecretEnv:
@@ -67,6 +80,7 @@ services:
       repository: europe-west6-docker.pkg.dev/changeme-gcp-project-dev/sap-integration/query-api
       tag: dev
     serviceAccount:
+      name: query-api
       annotations:
         iam.gke.io/gcp-service-account: query-api-dev@changeme-gcp-project-dev.iam.gserviceaccount.com
     extraSecretEnv:

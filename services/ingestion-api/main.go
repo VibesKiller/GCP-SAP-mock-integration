@@ -15,7 +15,11 @@ func main() {
 	}
 
 	logger := logging.New(cfg.ServiceName, cfg.Environment, cfg.LogLevel)
-	application := newApp(cfg, logger)
+	application, err := newApp(cfg, logger)
+	if err != nil {
+		logger.Error("initialize ingestion-api", "error", err)
+		log.Fatalf("initialize ingestion-api: %v", err)
+	}
 	defer application.close()
 
 	server := &http.Server{

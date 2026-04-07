@@ -30,30 +30,40 @@ type publishMetadata struct {
 type app struct {
 	config  appConfig
 	logger  *slog.Logger
+	dialer  *kafkaGo.Dialer
 	writer  *kafkaGo.Writer
 	metrics *metrics
 }
 
-func newApp(cfg appConfig, logger *slog.Logger) *app {
+func newApp(cfg appConfig, logger *slog.Logger) (*app, error) {
+	transport, err := platformKafka.NewTransport(cfg.Kafka)
+	if err != nil {
+		return nil, fmt.Errorf("build Kafka transport: %w", err)
+	}
+
+	dialer, err := platformKafka.NewDialer(cfg.Kafka)
+	if err != nil {
+		return nil, fmt.Errorf("build Kafka dialer: %w", err)
+	}
+
 	writer := &kafkaGo.Writer{
-		Addr:                   kafkaGo.TCP(cfg.KafkaBrokers...),
+		Addr:                   kafkaGo.TCP(cfg.Kafka.Brokers...),
 		Balancer:               &kafkaGo.Hash{},
 		RequiredAcks:           kafkaGo.RequireAll,
 		AllowAutoTopicCreation: false,
 		WriteTimeout:           cfg.KafkaWriteTimeout,
 		Async:                  false,
 		BatchTimeout:           100 * time.Millisecond,
-		Transport: &kafkaGo.Transport{
-			ClientID: cfg.KafkaClientID,
-		},
+		Transport:              transport,
 	}
 
 	return &app{
 		config:  cfg,
 		logger:  logger,
+		dialer:  dialer,
 		writer:  writer,
 		metrics: newMetrics(),
-	}
+	}, nil
 }
 
 func (a *app) close() error {
@@ -77,7 +87,7 @@ func (a *app) routes() http.Handler {
 }
 
 func (a *app) ready(ctx context.Context) error {
-	conn, err := kafkaGo.DialContext(ctx, "tcp", a.config.KafkaBrokers[0])
+	conn, err := a.dialer.DialContext(ctx, "tcp", a.config.Kafka.Brokers[0])
 	if err != nil {
 		return err
 	}

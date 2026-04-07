@@ -29,6 +29,14 @@ global:
           - sap-integration.example.com
   kafka:
     bootstrapServers: kafka-bootstrap.shared-platform.svc.cluster.local:9092
+    authMode: google_access_token
+    tls:
+      enabled: true
+      insecureSkipVerify: false
+      serverName: ""
+      caCertFile: ""
+    gcp:
+      accessTokenScope: https://www.googleapis.com/auth/cloud-platform
   networkPolicy:
     enabled: true
     egressRules:
@@ -55,6 +63,7 @@ services:
         cpu: 500m
         memory: 512Mi
     serviceAccount:
+      name: sap-mock-api
       annotations:
         iam.gke.io/gcp-service-account: sap-mock-api-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
   ingestionApi:
@@ -62,6 +71,7 @@ services:
     image:
       repository: europe-west6-docker.pkg.dev/changeme-gcp-project-prod/sap-integration/ingestion-api
       tag: 1.0.0
+    kafkaPrincipalEmail: ingestion-api-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
     resources:
       requests:
         cpu: 300m
@@ -70,6 +80,7 @@ services:
         cpu: 1
         memory: 768Mi
     serviceAccount:
+      name: ingestion-api
       annotations:
         iam.gke.io/gcp-service-account: ingestion-api-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
     autoscaling:
@@ -83,6 +94,7 @@ services:
     image:
       repository: europe-west6-docker.pkg.dev/changeme-gcp-project-prod/sap-integration/event-processor
       tag: 1.0.0
+    kafkaPrincipalEmail: event-processor-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
     resources:
       requests:
         cpu: 400m
@@ -91,6 +103,7 @@ services:
         cpu: 1
         memory: 1Gi
     serviceAccount:
+      name: event-processor
       annotations:
         iam.gke.io/gcp-service-account: event-processor-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
     extraSecretEnv:
@@ -111,6 +124,7 @@ services:
         cpu: 750m
         memory: 768Mi
     serviceAccount:
+      name: query-api
       annotations:
         iam.gke.io/gcp-service-account: query-api-prod@changeme-gcp-project-prod.iam.gserviceaccount.com
     extraSecretEnv:

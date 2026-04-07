@@ -41,6 +41,9 @@ Kafka is treated as a shared platform dependency and can live outside the applic
 The relevant Helm values are:
 
 - `global.kafka.bootstrapServers`
+- `global.kafka.authMode`
+- `global.kafka.tls.enabled`
+- `global.kafka.gcp.accessTokenScope`
 - `global.kafka.topics.salesOrders`
 - `global.kafka.topics.customers`
 - `global.kafka.topics.invoices`
@@ -53,6 +56,19 @@ Application responsibilities:
 - `event-processor` consumes those topics and produces to the DLQ when needed
 - `query-api` does not connect to Kafka
 - `sap-mock-api` does not connect to Kafka directly
+
+For Google Managed Kafka, the current Go implementation uses:
+
+- TLS enabled
+- SASL/PLAIN over Kafka using a short-lived Google access token refreshed from ADC
+- one principal email per Kafka-enabled workload
+
+Required Helm values for that path:
+
+- `global.kafka.authMode=google_access_token`
+- `global.kafka.tls.enabled=true`
+- `services.ingestionApi.kafkaPrincipalEmail=<ingestion-api-gsa>`
+- `services.eventProcessor.kafkaPrincipalEmail=<event-processor-gsa>`
 
 ## Required Secrets
 
@@ -67,7 +83,7 @@ Example:
 
 ```bash
 kubectl -n sap-integration-dev create secret generic sap-integration-postgres-dev \
-  --from-literal=url='postgres://query_user:strong-password@postgres.example.internal:5432/integration?sslmode=require'
+  --from-literal=url='postgres://query_user:replace-with-url-encoded-password@postgres.example.internal:5432/integration?sslmode=require'
 ```
 
 In GKE, a professional pattern is to keep the secret in Google Secret Manager and sync it into Kubernetes using an approved mechanism. The Helm chart stays intentionally neutral and only references the resulting Kubernetes Secret.
@@ -193,3 +209,38 @@ Check that:
 2. the ingress address is allocated if enabled
 3. the `event-processor` can resolve Kafka and PostgreSQL endpoints
 4. `query-api` returns healthy responses through the Service or Ingress
+
+## GKE Smoke Test
+
+After Terraform has provisioned GCP, deploy the workloads and run the GKE smoke test from the repository root:
+
+```bash
+make gke-deploy
+make gke-status
+make gke-smoke
+```
+
+`make gke-deploy` uses Terraform outputs to:
+
+1. configure `kubectl` for the GKE cluster
+2. build and push service images to Artifact Registry
+3. create the application namespace
+4. create the `POSTGRES_URL` Kubernetes Secret from Secret Manager and Cloud SQL outputs
+5. run the PostgreSQL migration from a temporary in-cluster pod
+6. deploy the Helm release with the Managed Kafka bootstrap address and Workload Identity annotations
+
+The smoke test uses the current `kubectl` context and starts a temporary `curlimages/curl` pod inside `sap-integration-dev`. It verifies the end-to-end path through internal Kubernetes Services rather than Ingress:
+
+1. rollout status for the four application deployments
+2. health and readiness endpoints inside the namespace
+3. `sap-mock-api` dispatch to `ingestion-api`
+4. Kafka publish and consume through Google Managed Kafka
+5. PostgreSQL projection reads through `query-api`
+
+Useful overrides:
+
+```bash
+K8S_NAMESPACE=sap-integration-prod make gke-smoke
+HELM_RELEASE=sap-integration-platform make gke-smoke
+KUBECTL=/path/to/kubectl make gke-smoke
+```

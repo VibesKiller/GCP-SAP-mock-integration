@@ -35,6 +35,14 @@ data:
   LOG_LEVEL: {{ default "info" .Values.global.logLevel | quote }}
   PORT: {{ printf "%v" .Values.services.ingestionApi.containerPort | quote }}
   KAFKA_BROKERS: {{ .Values.global.kafka.bootstrapServers | quote }}
+  KAFKA_AUTH_MODE: {{ default "none" .Values.global.kafka.authMode | quote }}
+  KAFKA_TLS_ENABLED: {{ printf "%v" .Values.global.kafka.tls.enabled | quote }}
+  KAFKA_TLS_INSECURE_SKIP_VERIFY: {{ printf "%v" .Values.global.kafka.tls.insecureSkipVerify | quote }}
+  KAFKA_TLS_SERVER_NAME: {{ .Values.global.kafka.tls.serverName | quote }}
+  KAFKA_TLS_CA_CERT_FILE: {{ .Values.global.kafka.tls.caCertFile | quote }}
+  KAFKA_SASL_USERNAME: {{ default "" .Values.services.ingestionApi.kafkaSASLUsername | quote }}
+  KAFKA_GCP_PRINCIPAL_EMAIL: {{ default "" .Values.services.ingestionApi.kafkaPrincipalEmail | quote }}
+  KAFKA_GCP_ACCESS_TOKEN_SCOPE: {{ default "https://www.googleapis.com/auth/cloud-platform" .Values.global.kafka.gcp.accessTokenScope | quote }}
   KAFKA_CLIENT_ID: {{ .Values.services.ingestionApi.kafkaClientId | quote }}
   KAFKA_WRITE_TIMEOUT: {{ .Values.services.ingestionApi.kafkaWriteTimeout | quote }}
   INGESTION_SOURCE_SYSTEM: {{ .Values.services.ingestionApi.sourceSystem | quote }}
@@ -58,6 +66,14 @@ data:
   LOG_LEVEL: {{ default "info" .Values.global.logLevel | quote }}
   PORT: {{ printf "%v" .Values.services.eventProcessor.containerPort | quote }}
   KAFKA_BROKERS: {{ .Values.global.kafka.bootstrapServers | quote }}
+  KAFKA_AUTH_MODE: {{ default "none" .Values.global.kafka.authMode | quote }}
+  KAFKA_TLS_ENABLED: {{ printf "%v" .Values.global.kafka.tls.enabled | quote }}
+  KAFKA_TLS_INSECURE_SKIP_VERIFY: {{ printf "%v" .Values.global.kafka.tls.insecureSkipVerify | quote }}
+  KAFKA_TLS_SERVER_NAME: {{ .Values.global.kafka.tls.serverName | quote }}
+  KAFKA_TLS_CA_CERT_FILE: {{ .Values.global.kafka.tls.caCertFile | quote }}
+  KAFKA_SASL_USERNAME: {{ default "" .Values.services.eventProcessor.kafkaSASLUsername | quote }}
+  KAFKA_GCP_PRINCIPAL_EMAIL: {{ default "" .Values.services.eventProcessor.kafkaPrincipalEmail | quote }}
+  KAFKA_GCP_ACCESS_TOKEN_SCOPE: {{ default "https://www.googleapis.com/auth/cloud-platform" .Values.global.kafka.gcp.accessTokenScope | quote }}
   KAFKA_CLIENT_ID: {{ .Values.services.eventProcessor.kafkaClientId | quote }}
   KAFKA_CONSUMER_GROUP: {{ .Values.global.kafka.consumerGroups.eventProcessor | quote }}
   KAFKA_TOPICS: {{ printf "%s,%s,%s" .Values.global.kafka.topics.salesOrders .Values.global.kafka.topics.customers .Values.global.kafka.topics.invoices | quote }}

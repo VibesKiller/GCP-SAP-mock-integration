@@ -19,6 +19,7 @@ import (
 
 	"gcp-sap-mock-integration/internal/domain"
 	platformHttp "gcp-sap-mock-integration/internal/platform/httpx"
+	platformKafka "gcp-sap-mock-integration/internal/platform/kafka"
 	platformPostgres "gcp-sap-mock-integration/internal/platform/postgres"
 )
 
@@ -52,6 +53,7 @@ type app struct {
 	config    appConfig
 	logger    *slog.Logger
 	db        *pgxpool.Pool
+	dialer    *kafkaGo.Dialer
 	reader    *kafkaGo.Reader
 	dlqWriter *kafkaGo.Writer
 	metrics   *metrics
@@ -63,31 +65,43 @@ func newApp(ctx context.Context, cfg appConfig, logger *slog.Logger) (*app, erro
 		return nil, err
 	}
 
+	dialer, err := platformKafka.NewDialer(cfg.Kafka)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("build Kafka dialer: %w", err)
+	}
+
+	transport, err := platformKafka.NewTransport(cfg.Kafka)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("build Kafka transport: %w", err)
+	}
+
 	reader := kafkaGo.NewReader(kafkaGo.ReaderConfig{
-		Brokers:        cfg.KafkaBrokers,
+		Brokers:        cfg.Kafka.Brokers,
 		GroupID:        cfg.KafkaConsumerGroup,
 		GroupTopics:    cfg.KafkaTopics,
 		MinBytes:       1,
 		MaxBytes:       10e6,
 		CommitInterval: 0,
 		StartOffset:    kafkaGo.FirstOffset,
+		Dialer:         dialer,
 	})
 
 	dlqWriter := &kafkaGo.Writer{
-		Addr:                   kafkaGo.TCP(cfg.KafkaBrokers...),
+		Addr:                   kafkaGo.TCP(cfg.Kafka.Brokers...),
 		Balancer:               &kafkaGo.Hash{},
 		RequiredAcks:           kafkaGo.RequireAll,
 		AllowAutoTopicCreation: false,
 		BatchTimeout:           100 * time.Millisecond,
-		Transport: &kafkaGo.Transport{
-			ClientID: cfg.KafkaClientID + "-dlq",
-		},
+		Transport:              transport,
 	}
 
 	return &app{
 		config:    cfg,
 		logger:    logger,
 		db:        db,
+		dialer:    dialer,
 		reader:    reader,
 		dlqWriter: dlqWriter,
 		metrics:   newMetrics(),
@@ -116,7 +130,7 @@ func (a *app) ready(ctx context.Context) error {
 		return err
 	}
 
-	conn, err := kafkaGo.DialContext(ctx, "tcp", a.config.KafkaBrokers[0])
+	conn, err := a.dialer.DialContext(ctx, "tcp", a.config.Kafka.Brokers[0])
 	if err != nil {
 		return err
 	}

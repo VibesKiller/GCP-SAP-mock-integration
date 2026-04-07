@@ -98,6 +98,8 @@ services:
       LOG_LEVEL: '${LOG_LEVEL:-info}'
       PORT: 8081
       KAFKA_BROKERS: kafka:29092
+      KAFKA_AUTH_MODE: none
+      KAFKA_TLS_ENABLED: 'false'
       KAFKA_CLIENT_ID: ingestion-api
       KAFKA_WRITE_TIMEOUT: 5s
       INGESTION_SOURCE_SYSTEM: '${INGESTION_SOURCE_SYSTEM:-sap-s4hana}'
@@ -121,6 +123,8 @@ services:
       LOG_LEVEL: '${LOG_LEVEL:-info}'
       PORT: 8082
       KAFKA_BROKERS: kafka:29092
+      KAFKA_AUTH_MODE: none
+      KAFKA_TLS_ENABLED: 'false'
       KAFKA_CLIENT_ID: event-processor
       KAFKA_CONSUMER_GROUP: sap-integration.event-processor.v1
       KAFKA_TOPICS: sap.sales-orders.v1,sap.customers.v1,sap.invoices.v1

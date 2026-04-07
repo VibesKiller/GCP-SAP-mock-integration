@@ -1,4 +1,20 @@
 project_id           = "your-gcp-project-id"
 region               = "europe-west6"
-db_password          = "replace-me"
-node_service_account = "gke-nodes@your-gcp-project-id.iam.gserviceaccount.com"
+kubernetes_namespace = "sap-integration-prod"
+gke_disk_type        = "pd-balanced"
+gke_disk_size_gb     = 100
+private_service_range_address = "10.140.0.0"
+master_authorized_networks = [
+  {
+    cidr_block   = "203.0.113.10/32"
+    display_name = "engineering-vpn"
+  },
+  {
+    cidr_block   = "198.51.100.20/32"
+    display_name = "break-glass-admin"
+  }
+]
+additional_labels = {
+  owner = "platform-engineering"
+  tier  = "production"
+}

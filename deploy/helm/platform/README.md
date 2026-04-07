@@ -30,6 +30,10 @@ Kafka is intentionally treated as an external dependency.
 Configurable values:
 
 - `global.kafka.bootstrapServers`
+- `global.kafka.authMode`
+- `global.kafka.tls.enabled`
+- `global.kafka.tls.serverName`
+- `global.kafka.gcp.accessTokenScope`
 - `global.kafka.topics.salesOrders`
 - `global.kafka.topics.customers`
 - `global.kafka.topics.invoices`
@@ -42,6 +46,15 @@ Application dependency flow:
 - `event-processor` reads business topics and writes the DLQ when required
 - `query-api` has no Kafka dependency
 - `sap-mock-api` only depends on `ingestion-api`
+
+For Google Managed Kafka with the current Go implementation:
+
+- set `global.kafka.authMode=google_access_token`
+- set `global.kafka.tls.enabled=true`
+- set `services.ingestionApi.kafkaPrincipalEmail` to the Google service account email used by `ingestion-api`
+- set `services.eventProcessor.kafkaPrincipalEmail` to the Google service account email used by `event-processor`
+
+This keeps local Docker Compose development on plaintext Kafka while enabling GKE workloads to authenticate with refreshed Google access tokens obtained through Application Default Credentials.
 
 ## Namespace Assumption
 
@@ -67,7 +80,7 @@ Example:
 
 ```bash
 kubectl -n sap-integration-dev create secret generic sap-integration-postgres-dev \
-  --from-literal=url='postgres://query_user:strong-password@postgres.example.internal:5432/integration?sslmode=require'
+  --from-literal=url='postgres://query_user:replace-with-url-encoded-password@postgres.example.internal:5432/integration?sslmode=require'
 ```
 
 In a GKE setup that uses Google Secret Manager, the expected pattern is:

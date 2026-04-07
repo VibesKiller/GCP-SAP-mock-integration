@@ -15,7 +15,7 @@ SERVICE ?=
 GO_PACKAGES := ./...
 GO_FILES := $(shell find . -type f -name '*.go' -not -path './.git/*')
 
-.PHONY: help up down logs ps build test lint fmt check smoke seed kafka-topics kafka-test check-structure tree openapi-summary compose-up compose-down topics-create kafka-topology terraform-fmt-check go-build go-test helm-lint helm-template helm-template-dev helm-template-prod microk8s-deploy microk8s-smoke microk8s-status
+.PHONY: help up down logs ps build test lint fmt check smoke seed kafka-topics kafka-test check-structure tree openapi-summary compose-up compose-down topics-create kafka-topology terraform-fmt-check go-build go-test helm-lint helm-template helm-template-dev helm-template-prod microk8s-deploy microk8s-smoke microk8s-status gke-deploy gke-status gke-smoke gcp-smoke
 
 help: ## Show available targets
 	@printf '\nLocal developer workflow:\n\n'
@@ -137,3 +137,15 @@ microk8s-status: ## Print MicroK8s cluster and workload status
 	@./scripts/lib/microk8s.sh >/dev/null 2>&1 || true
 	@sg microk8s -c 'microk8s status'
 	@sg microk8s -c 'microk8s kubectl get pods -A'
+
+gke-deploy: ## Build, push and deploy the dev stack to GKE using Terraform outputs
+	@./scripts/deploy-gke.sh
+
+gke-status: ## Print GKE workload status for the dev namespace. Override K8S_NAMESPACE if needed
+	@kubectl -n $${K8S_NAMESPACE:-sap-integration-dev} get deploy,svc,pods,hpa,ingress
+
+gke-smoke: ## Run an end-to-end smoke test against the current GKE kubectl context
+	@./scripts/smoke-test-gke.sh
+
+gcp-smoke: ## Alias for make gke-smoke
+	@$(MAKE) gke-smoke

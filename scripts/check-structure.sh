@@ -28,9 +28,11 @@ required_paths=(
   services/query-api/main.go
   scripts/up-local.sh
   scripts/create-topics.sh
+  scripts/deploy-gke.sh
   scripts/deploy-microk8s.sh
   scripts/seed-local.sh
   scripts/smoke-test.sh
+  scripts/smoke-test-gke.sh
   scripts/smoke-test-microk8s.sh
   terraform/envs/dev/main.tf
   terraform/envs/prod/main.tf

@@ -8,7 +8,12 @@ coverage.out
 *.log
 *.tmp
 .env
+.env.*
+!.env.example
+!**/.env.example
 .cache/
+rendered.yaml
+rendered-*.yaml
 
 # IDE
 .vscode/
@@ -16,13 +21,38 @@ coverage.out
 
 # Terraform
 .terraform/
+**/.terraform/
 *.tfstate
 *.tfstate.*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+!**/*.tfvars.example
+backend.hcl
+!backend.hcl.example
+!**/backend.hcl.example
+*.tfplan
+*.tfplan.json
+*.plan
 crash.log
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Local cloud credentials and kubeconfigs
+credentials.json
+*-credentials.json
+service-account*.json
+*-service-account.json
+key.json
+*.pem
+*.key
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+.kube/
+.config/gcloud/
 
 # OS
 .DS_Store
