@@ -1,8 +1,19 @@
-# GCP SAP Mock Integration Platform
+# GCP Enterprise Integration Platform
 
-A small implementation of a realistic enterprise technology stack.
+Enterprise-ready SAP-style integration platform built on Google Cloud using Go, Apache Kafka, Kubernetes, Terraform and PostgreSQL.Enterprise-ready SAP-style integration platform built on Google Cloud using Go, Apache Kafka, Kubernetes, Terraform and PostgreSQL.
 
 This repository is intended to serve as a portfolio for DevOps, Cloud, and Platform Engineer interviews, and aims to demonstrate skills in designing, developing, integrating, and maintaining business processes, as well as the ability to manage a cloud-based system built with Infrastructure as Code (IaC).
+
+## Why this project
+
+This project simulates a real-world enterprise integration platform used to ingest and process SAP business events in a cloud-native environment.
+
+It demonstrates:
+- Event-driven architecture using Apache Kafka
+- Cloud-native deployment on Kubernetes (GKE)
+- Infrastructure as Code with Terraform
+- Observability, resiliency and fault-tolerance patterns
+- CI/CD automation
 
 ## Purpose
 
@@ -30,6 +41,37 @@ The platform receives SAP payloads, validates and normalizes them, publishes can
 - CI/CD: GitHub Actions
 - API documentation: OpenAPI
 - Logging: JSON structured logs with correlation IDs
+
+## Architecture
+
+SAP (mock API)
+        ↓
+Ingestion Service
+        ↓
+Apache Kafka (topics)
+        ↓
+Event Processor
+        ↓
+PostgreSQL (Cloud SQL)
+        ↓
+Query API
+
+Service responsibilities:
+
+- `sap-mock-api` exposes endpoints that generate realistic SAP-style sample events.
+- `ingestion-api` validates incoming payloads, creates the canonical event envelope and publishes to Kafka.
+- `event-processor` consumes Kafka events, applies idempotency through `processed_events`, persists data and routes unrecoverable failures to the DLQ.
+- `query-api` exposes read-only APIs for customers, orders and invoices.
+
+Kafka contracts:
+
+- Sales orders topic: `sap.sales-orders.v1`
+- Customers topic: `sap.customers.v1`
+- Invoices topic: `sap.invoices.v1`
+- Dead-letter topic: `sap.integration.dlq.v1`
+- Main consumer group: `sap-integration.event-processor.v1`
+
+The local stack uses real Apache Kafka in Docker Compose. The GCP target is designed for Google Managed Service for Apache Kafka with TLS and Workload Identity based authentication.
 
 ## System Dependencies
 
@@ -64,36 +106,6 @@ sudo apt-get install -y git make curl jq ca-certificates
 ```
 
 Install Docker, Go, Terraform, Helm and the Google Cloud CLI from their official distribution channels, because those tools have versioned release streams and platform-specific installation steps.
-
-## Implemented Workflow
-
-The implemented event flow is:
-
-```text
-sap-mock-api
-  -> ingestion-api
-  -> Apache Kafka
-  -> event-processor
-  -> PostgreSQL / Cloud SQL
-  -> query-api
-```
-
-Service responsibilities:
-
-- `sap-mock-api` exposes endpoints that generate realistic SAP-style sample events.
-- `ingestion-api` validates incoming payloads, creates the canonical event envelope and publishes to Kafka.
-- `event-processor` consumes Kafka events, applies idempotency through `processed_events`, persists data and routes unrecoverable failures to the DLQ.
-- `query-api` exposes read-only APIs for customers, orders and invoices.
-
-Kafka contracts:
-
-- Sales orders topic: `sap.sales-orders.v1`
-- Customers topic: `sap.customers.v1`
-- Invoices topic: `sap.invoices.v1`
-- Dead-letter topic: `sap.integration.dlq.v1`
-- Main consumer group: `sap-integration.event-processor.v1`
-
-The local stack uses real Apache Kafka in Docker Compose. The GCP target is designed for Google Managed Service for Apache Kafka with TLS and Workload Identity based authentication.
 
 ## Run The Local Stack
 
